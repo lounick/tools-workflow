@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+import yaml
+import sys
+import os
+import subprocess
+from os import walk
+from subprocess import call 
+
+ESROCOS_YAML = "esrocos.yml"
+INSTALLED_DIR = ""
+ASNACN_DIR = ""
+PROJECT_NAME = ""
+
+try: 
+  print "opening esrocos.yml...\t\t",
+  with open(ESROCOS_YAML, 'r') as stream:
+    try:
+      print "DONE"
+      print "parsing esrocos.yml...\t\t",
+      sys.stdout.flush()      
+
+      data = yaml.load(stream)
+      INSTALLED_DIR = data["INSTALLED_TYPES_DIR"]
+      ASNACN_DIR = data["ASNACN_DIR"]
+      PROJECT_NAME = data["PROJECT_NAME"]
+
+      print "DONE"
+    except yaml.YAMLError as err:
+      print "\nesrocos.yml could not be parsed."
+      sys.exit()
+except IOError as err:
+  print "FAILED"
+  print "esrocos.yml file not found, please use esrocos-init-project to initialize the project first"
+  sys.exit()
+
+taste_arguments = ["TASTE"]
+misc_args = ["--project-name",PROJECT_NAME]
+dv_args = ["--data-view"]
+iv_args = ["--load-interface-view"]
+dp_args = ["--load-deployment-view"]
+al_args = ["--aadl-library"]
+
+#EXTEND ARGUMENTS WITH FILE NAMES
+  # DATA VIEW
+
+dv_files = ""
+f = []
+
+for (dirpath, dirnames, filenames) in walk(INSTALLED_DIR):
+  f.extend(filenames)
+  break
+
+for filename in f:
+  path = ""
+  if filename.endswith(".aadl"):
+    dv_files = dv_files + os.getcwd() + "/" + INSTALLED_DIR + filename+ ","
+
+dv_files = dv_files[:-1]
+dv_args.append(dv_files)
+
+  # INTERFACE VIEW
+
+iv_args.append(PROJECT_NAME+"_iv.aadl")
+
+  # DEPLOYMENT VIEW
+
+dp_args.append(PROJECT_NAME+"_dp.aadl")
+
+  # OCARINA 
+proc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
+tasteconfig = proc.stdout.read().rstrip()
+ocarina = tasteconfig + "/share/ocarina/AADLv2/ocarina_components.aadl"
+al_args.append(ocarina)
+
+taste_arguments.extend(misc_args)
+taste_arguments.extend(dv_args)
+taste_arguments.extend(iv_args)
+taste_arguments.extend(dp_args)
+taste_arguments.extend(al_args)
+
+print taste_arguments
+
+print "opening TASTE GUI...\t",
+sys.stdout.flush()  
+
+call(taste_arguments)

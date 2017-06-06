@@ -1,0 +1,197 @@
+#!/usr/bin/env python
+
+import os.path
+import os
+import yaml
+import sys
+import subprocess
+from subprocess import call 
+from os import walk
+from shutil import copyfile
+
+ESROCOS_YAML = "esrocos.yml"
+DEFAULT_PROJECT_NAME = "esrocos_project"
+SRC_DIR = "dataview/"
+INSTALL_DIR = "installed_types/"
+
+print "init esrocos project..."
+sys.stdout.flush()
+
+try: 
+  with open(ESROCOS_YAML, 'r') as stream:
+    try:
+      print "found existing esrocos.yml, use esrocos-edit-project instead."
+      sys.exit()
+    except yaml.YAMLError as err:
+      print "creating esrocos.yml"
+except IOError as err:
+  print "no file found, creating.."
+
+#asking for project info
+print "Please enter some project info"
+project_name = DEFAULT_PROJECT_NAME
+#projectName = raw_input("Please enter the name of the project: ")
+print "Project name:", project_name
+
+#INTERACTIVELY ASK FOR OS DEPENDENCIES
+
+print "Please enter the projects OS dependencies, proceed by pressing return"
+os_deps = []
+user_input = "default"
+while not user_input == "":
+  user_input = raw_input("> ")
+  if not user_input == "":
+    os_deps.append(user_input)
+
+print os_deps  
+  
+#INTERACTIVELY ASK FOR PACKAGE DEPENDENCIES
+
+pkg_deps = []
+
+print "Please enter package dependencies, proceed by pressing return"
+user_input = "default"
+while not user_input == "":
+  user_input = raw_input("> ")
+  if not user_input == "":
+    pkg_deps.append(user_input)
+
+print pkg_deps
+
+#GENERATE CONF FILE
+
+data = {}
+data["PROJECT_NAME"] = project_name
+data["os_deps"] = os_deps
+data["pkg_deps"] = pkg_deps
+data["ASNACN_DIR"] = SRC_DIR
+data["INSTALLED_TYPES_DIR"] = INSTALL_DIR 
+
+try:
+  with open(ESROCOS_YAML, 'w') as outfile:
+    yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+#CREATE FOLDER STRUCTURE
+print "create folder structure...\t",
+sys.stdout.flush()
+
+try:
+  os.makedirs(SRC_DIR)
+except OSError as err:
+  if not err.errno == 17: 
+    print "FAILED"
+    raise
+
+try: 
+  os.makedirs(INSTALL_DIR)
+except OSError as err:
+  if not err.errno == 17: 
+    print "FAILED"
+    raise
+
+print "DONE"
+
+#CREATE ASN FILES
+print "copy taste-types...\t\t",
+sys.stdout.flush()
+
+proc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
+tasteconfig = proc.stdout.read().rstrip()
+
+cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
+
+call(cp_arguments)
+
+print "DONE"
+
+print "create asn file...\t\t",
+
+data_view_asn = "ESROCOS-" + project_name.replace("_","-") + """ DEFINITIONS ::=
+BEGIN
+IMPORTS T-Boolean FROM TASTE-BasicTypes;
+
+MyDummyInteger::=INTEGER(0..255)
+-- Define your own data types and constants here 
+
+END
+  """
+
+try:
+  with open(SRC_DIR+project_name.replace(' ', '_') +".asn", 'w') as outfile:
+    outfile.write(data_view_asn)
+except IOError as err:
+  print "FAILED"
+  raise
+else:
+  print "DONE"
+
+#CREATE ACN MODELS
+print "generate acn files...\t\t",
+sys.stdout.flush()
+
+asn1_args = ["which", "asn1.exe"]
+proc = subprocess.Popen(asn1_args, stdout=subprocess.PIPE)
+asn1 = proc.stdout.read().rstrip()
+
+mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') +".asn", SRC_DIR + "taste-types.asn"]
+
+call(mono_args)
+
+print"DONE"
+#INSTALLING DEPENDENCY TYPES
+print "installing shared types...\t", 
+sys.stdout.flush()
+
+SHARED_DIR = "../esrocos_shared_types/"
+
+aadl_files = []
+f = []
+ 
+for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
+  f.extend(filenames)
+  break
+
+
+for filename in f:
+  try:
+    copyfile(SHARED_DIR+filename,INSTALL_DIR+filename)
+  except IOError as err:
+    raise err
+
+print "DONE"
+
+#GENERATE DATA VIEW
+print "generate data view files...\t", 
+sys.stdout.flush()
+
+  #getting asn and acn files from folder
+
+asn_acn_files = []
+f = []
+
+for (dirpath, dirnames, filenames) in walk(SRC_DIR):
+  f.extend(filenames)
+  break
+
+for filename in f:
+  path = ""
+  if filename.endswith(".asn"):
+    path = path + os.getcwd() + "/" + SRC_DIR + filename 
+    asn_acn_files.append(path)
+  if filename.endswith(".acn"):
+    path = path + os.getcwd() + "/" + SRC_DIR + filename 
+    asn_acn_files.append(path)
+
+asn_arguments = ["asn2aadlPlus"]
+asn_arguments.extend(asn_acn_files)
+asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
+
+call(asn_arguments)
+
+print "DONE"
+
+#FINALLY
+print "ESROCOS project initialized successfully. Edit the project by calling 'esrocos_edit_project'"
