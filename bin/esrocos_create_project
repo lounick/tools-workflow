@@ -166,21 +166,35 @@ print"DONE"
 print "installing shared types...\t", 
 sys.stdout.flush()
 
-SHARED_DIR = "../esrocos_shared_types/"
+SHARED_DIR = "../install/types/"
 
 aadl_files = []
-f = []
+d = []
  
 for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-  f.extend(filenames)
+  d.extend(dirnames)
   break
 
+for dirname in d:
+  f = []  
 
-for filename in f:
   try:
-    copyfile(SHARED_DIR+filename,INSTALL_DIR+filename)
-  except IOError as err:
-    raise err
+    os.makedirs(INSTALL_DIR+dirname+"/asn")
+  except OSError as err:
+    if not err.errno == 17: 
+      raise err  
+
+  for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
+    f.extend(filenames)
+    
+    for filename in f:
+      try:
+#        print filename
+#        print "from: "+SHARED_DIR+dirname+"/asn/"+filename
+#        print "to: "+INSTALL_DIR+dirname+"/asn/"+filename
+        copyfile(SHARED_DIR+dirname+"/asn/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
+      except IOError as err:
+        raise err
 
 print "DONE"
 
@@ -191,20 +205,20 @@ sys.stdout.flush()
   #getting asn and acn files from folder
 
 asn_acn_files = []
-f = []
 
 for (dirpath, dirnames, filenames) in walk(SRC_DIR):
   f.extend(filenames)
-  break
+  for filename in filenames:
+    if filename.endswith(".asn") or filename.endswith(".acn"):
+      asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
 
-for filename in f:
-  path = ""
-  if filename.endswith(".asn"):
-    path = path + os.getcwd() + "/" + SRC_DIR + filename 
-    asn_acn_files.append(path)
-  if filename.endswith(".acn"):
-    path = path + os.getcwd() + "/" + SRC_DIR + filename 
-    asn_acn_files.append(path)
+for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
+  f.extend(filenames)
+  for filename in filenames:
+    if filename.endswith(".asn") or filename.endswith(".acn"):
+      asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+
+print asn_acn_files
 
 asn_arguments = ["asn2aadlPlus"]
 asn_arguments.extend(asn_acn_files)
