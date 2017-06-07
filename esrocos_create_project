@@ -17,6 +17,32 @@ INSTALL_DIR = "installed_types/"
 print "init esrocos project..."
 sys.stdout.flush()
 
+if len(sys.argv) == 2:
+
+  path = sys.argv[1]
+  try: 
+    os.makedirs(path)
+    os.chdir(path)
+    project_name = sys.argv[1]
+  except OSError:
+    if not os.path.isdir(path):
+      raise
+
+elif len(sys.argv) == 1: 
+
+  #asking for project info
+  print "Please enter some project info"
+  project_name = DEFAULT_PROJECT_NAME
+  #projectName = raw_input("Please enter the name of the project: ")
+  print "Project name:"+ project_name
+
+else: 
+  print "usage: esrocos_create_project [project name]"
+  sys.exit()
+
+
+#AT THIS POINT WE SHOULD BE IN THE NEW WORKSPACE DIR ONE WAY OR THE OTHER
+
 try: 
   with open(ESROCOS_YAML, 'r') as stream:
     try:
@@ -27,11 +53,6 @@ try:
 except IOError as err:
   print "no file found, creating.."
 
-#asking for project info
-print "Please enter some project info"
-project_name = DEFAULT_PROJECT_NAME
-#projectName = raw_input("Please enter the name of the project: ")
-print "Project name:", project_name
 
 #INTERACTIVELY ASK FOR OS DEPENDENCIES
 
