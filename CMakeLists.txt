@@ -25,8 +25,12 @@ cmake_minimum_required(VERSION 2.6)
 
 project(esrocos_tools)
 
-install(TARGET tools ALL
-  	DIR ${CMAKE_SOURCE_DIR}/bin
-	DESTINATION ${CMAKE_INSTALL_DIR}/bin)
+file(GLOB tools 
+     "${CMAKE_SOURCE_DIR}/bin/*"
+)
+
+install(FILES ${tools}
+	DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+	PERMISSIONS WORLD_EXECUTE)
 
 message(STATUS "installed tools")
