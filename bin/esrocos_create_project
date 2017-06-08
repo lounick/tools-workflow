@@ -205,20 +205,29 @@ sys.stdout.flush()
   #getting asn and acn files from folder
 
 asn_acn_files = []
+asn_filenames = []
 
 for (dirpath, dirnames, filenames) in walk(SRC_DIR):
   f.extend(filenames)
   for filename in filenames:
     if filename.endswith(".asn") or filename.endswith(".acn"):
-      asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+      if not filename in asn_filenames:
+        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+        asn_filenames.append(filename)
+      else: 
+        print "duplicate: "+filename
 
 for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
   f.extend(filenames)
   for filename in filenames:
     if filename.endswith(".asn") or filename.endswith(".acn"):
-      asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+      if not filename in asn_filenames:
+        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+        asn_filenames.append(filename)
+      else: 
+        print "duplicate: "+filename
 
-print asn_acn_files
+#print asn_acn_files
 
 asn_arguments = ["asn2aadlPlus"]
 asn_arguments.extend(asn_acn_files)
