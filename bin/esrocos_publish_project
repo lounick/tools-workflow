@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+
+from subprocess import call, STDOUT
+import os
+import sys
+
+if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) != 0:
+  print "not a git repo"
+
+# ASK FOR PROJECT NAME
+
+project_name = ""
+project_name = raw_input("Please enter the name of the project: ")
+if project_name == "":
+  print "entered empty string, quit.."
+  sys.exit()
+else: 
+  print "Project name:"+ project_name
+
+# LOOK UP UNIVERSE PACKAGE SET IN AUTOPROJ/REMOTES
+
+try:
+  if os.path.isdir(os.environ['AUTOPROJ_CURRENT_ROOT'] + 'autoproj/remotes/esrocos.universe'):
+    print "found universe package set"
+  else:
+    print "error: did not find universe package set, aborting..."
+    sys.exit()
+except KeyError as err:
+  print "error: could not find autoproj root path - AUTOPROJ_CURRENT_ROOT not set"
+# SAVE CURRENT DIRECTORY PATH AND SWITCH TO UNIVERSE DIR
+
+# NEW BRANCH OF UNIVERSE PACKAGE (named by PROJECT NAME)
+
+# OPEN packages.autobuild
+
+# ASK FOR PROJECT TYPE (default CMAKE) AND WRITE TO FILE
+
+# OPEN source.yml 
+
+# ASK FOR CVS AND REMOTE URL AND WRITE TO FILE
+
+# PUSH NEW UPSTREAM BRANCH
+
+# EITHER GENERATE PULL REQUEST OR TELL USER TO DO SO
