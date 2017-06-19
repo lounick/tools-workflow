@@ -3,9 +3,12 @@
 from subprocess import call, STDOUT
 import os
 import sys
+import git
+from git import Repo
 
 if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) != 0:
   print "not a git repo"
+  sys.exit()
 
 # ASK FOR PROJECT NAME
 
@@ -19,17 +22,30 @@ else:
 
 # LOOK UP UNIVERSE PACKAGE SET IN AUTOPROJ/REMOTES
 
+universe_path = os.environ['AUTOPROJ_CURRENT_ROOT'] + '/autoproj/remotes/esrocos.universe'
+
 try:
-  if os.path.isdir(os.environ['AUTOPROJ_CURRENT_ROOT'] + 'autoproj/remotes/esrocos.universe'):
+  if os.path.isdir(universe_path):
     print "found universe package set"
   else:
     print "error: did not find universe package set, aborting..."
     sys.exit()
 except KeyError as err:
   print "error: could not find autoproj root path - AUTOPROJ_CURRENT_ROOT not set"
+
 # SAVE CURRENT DIRECTORY PATH AND SWITCH TO UNIVERSE DIR
 
+os.chdir(universe_path)
+
 # NEW BRANCH OF UNIVERSE PACKAGE (named by PROJECT NAME)
+
+repo = Repo(os.getcwd())
+assert not repo.bare
+
+git = repo.git
+git.checkout('HEAD', b="new_contrib_"+project_name)
+
+sys.exit() 
 
 # OPEN packages.autobuild
 
