@@ -79,23 +79,22 @@ git.checkout('HEAD', b="new_contrib_"+project_name)
 
 
 try:
-  with open("packages.autobuild", 'w') as autobuild_file, open("source.yml", 'w') as source_file :
+  with open("packages.autobuild", 'a') as autobuild_file, open("source.yml", 'a') as source_file :
     print "opened files"
 
-source_entry = "        - esrocos_universe/"+project_name+":\n"+
-               "          "+project_cvs+" : "+project_url 
+    source_entry = "\n        - esrocos_universe/"+project_name+":\n"+ \
+                   "          "+project_cvs+" : "+project_url 
+    print source_entry
 
-print source_entry
-
-sys.exit()
+    autobuild_entry = "\n"+project_cvs+"_package " + "esrocos_universe/"+project_name
+    print autobuild_entry
+  
+    sys.exit()
 
 
 except IOError as err:
   print "could not write to file, exit..."
   sys.exit()
-
-
-
 
 sys.exit()
 
