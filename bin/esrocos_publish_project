@@ -58,6 +58,14 @@ if project_cvs == "":
 else: 
   print "project type: "+ project_name
 
+project_url = ""
+project_url = raw_input("Please enter the cvs url of the project (no default): ")
+if project_url == "":
+  print "no url given, abort"
+  sys.exit()
+else: 
+  print "project url: "+ project_url
+
 # NEW BRANCH OF UNIVERSE PACKAGE (named by PROJECT NAME)
 
 universe_repo = Repo(os.getcwd())
@@ -66,18 +74,30 @@ assert not universe_repo.bare
 git = universe_repo.git
 git.checkout('HEAD', b="new_contrib_"+project_name)
 
-# OPEN packages.autobuild AND source.yml 
+# OPEN packages.autobuild AND source.yml AND WRITE INFOS
+
+
 
 try:
   with open("packages.autobuild", 'w') as autobuild_file, open("source.yml", 'w') as source_file :
     print "opened files"
+
+source_entry = "        - esrocos_universe/"+project_name+":\n"+
+               "          "+project_cvs+" : "+project_url 
+
+print source_entry
+
+sys.exit()
+
+
 except IOError as err:
   print "could not write to file, exit..."
   sys.exit()
 
-# AND WRITE INFOS
 
 
+
+sys.exit()
 
 # PUSH NEW UPSTREAM BRANCH
 
