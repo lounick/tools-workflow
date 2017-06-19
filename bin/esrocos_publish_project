@@ -6,6 +6,9 @@ import sys
 import git
 from git import Repo
 
+project_repo = Repo(os.getcwd())
+assert not project_repo.bare
+
 if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) != 0:
   print "not a git repo"
   sys.exit()
@@ -18,7 +21,7 @@ if project_name == "":
   print "entered empty string, quit.."
   sys.exit()
 else: 
-  print "Project name:"+ project_name
+  print "project name: "+ project_name
 
 # LOOK UP UNIVERSE PACKAGE SET IN AUTOPROJ/REMOTES
 
@@ -37,24 +40,47 @@ except KeyError as err:
 
 os.chdir(universe_path)
 
-# NEW BRANCH OF UNIVERSE PACKAGE (named by PROJECT NAME)
-
-repo = Repo(os.getcwd())
-assert not repo.bare
-
-git = repo.git
-git.checkout('HEAD', b="new_contrib_"+project_name)
-
-sys.exit() 
-
-# OPEN packages.autobuild
-
 # ASK FOR PROJECT TYPE (default CMAKE) AND WRITE TO FILE
 
-# OPEN source.yml 
+project_type = ""
+project_type = raw_input("Please enter the type of the project (default is cmake): ")
+if project_type == "":
+  project_type = "cmake"
+else: 
+  print "project type: "+ project_name
 
-# ASK FOR CVS AND REMOTE URL AND WRITE TO FILE
+# ASK FOR CVS AND REMOTE URL
+
+project_cvs = ""
+project_cvs = raw_input("Please enter the cvs hoster of the project (default is github): ")
+if project_cvs == "":
+  project_cvs = "github"
+else: 
+  print "project type: "+ project_name
+
+# NEW BRANCH OF UNIVERSE PACKAGE (named by PROJECT NAME)
+
+universe_repo = Repo(os.getcwd())
+assert not universe_repo.bare
+
+git = universe_repo.git
+git.checkout('HEAD', b="new_contrib_"+project_name)
+
+# OPEN packages.autobuild AND source.yml 
+
+try:
+  with open("packages.autobuild", 'w') as autobuild_file, open("source.yml", 'w') as source_file :
+    print "opened files"
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+# AND WRITE INFOS
+
+
 
 # PUSH NEW UPSTREAM BRANCH
+
+sys.exit() 
 
 # EITHER GENERATE PULL REQUEST OR TELL USER TO DO SO
