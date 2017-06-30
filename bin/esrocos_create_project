@@ -154,80 +154,12 @@ mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace('
 call(mono_args)
 
 print"DONE"
-#INSTALLING DEPENDENCY TYPES
-print "installing shared types...\t", 
-sys.stdout.flush()
-
-SHARED_DIR = "../install/types/"
-
-aadl_files = []
-d = []
- 
-for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-  d.extend(dirnames)
-  break
-
-for dirname in d:
-  f = []  
-
-  try:
-    os.makedirs(INSTALL_DIR+dirname+"/asn")
-  except OSError as err:
-    if not err.errno == 17: 
-      raise err  
-
-  for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-    f.extend(filenames)
-    
-    for filename in f:
-      try:
-#        print filename
-#        print "from: "+SHARED_DIR+dirname+"/asn/"+filename
-#        print "to: "+INSTALL_DIR+dirname+"/asn/"+filename
-        copyfile(SHARED_DIR+dirname+"/asn/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
-      except IOError as err:
-        raise err
-
-print "DONE"
 
 #GENERATE DATA VIEW
 print "generate data view files...\t", 
 sys.stdout.flush()
 
-  #getting asn and acn files from folder
-
-asn_acn_files = []
-asn_filenames = []
-
-for (dirpath, dirnames, filenames) in walk(SRC_DIR):
-  f.extend(filenames)
-  for filename in filenames:
-    if filename.endswith(".asn") or filename.endswith(".acn"):
-      if not filename in asn_filenames:
-        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
-        asn_filenames.append(filename)
-      else: 
-        print "duplicate: "+filename
-
-for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
-  f.extend(filenames)
-  for filename in filenames:
-    if filename.endswith(".asn") or filename.endswith(".acn"):
-      if not filename in asn_filenames:
-        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
-        asn_filenames.append(filename)
-      else: 
-        print "duplicate: "+filename
-
-#print asn_acn_files
-
-asn_arguments = ["asn2aadlPlus"]
-asn_arguments.extend(asn_acn_files)
-asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
-
-call(asn_arguments)
-
 print "DONE"
 
 #FINALLY
-print "ESROCOS project initialized successfully. Edit the project by calling 'esrocos_edit_project'"
+print "ESROCOS project initialized successfully. Fetch Dependencies with esrocos_fetch_dependencies then edit the project by calling 'esrocos_edit_project'"

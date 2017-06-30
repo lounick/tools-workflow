@@ -1,16 +1,102 @@
 #!/usr/bin/env python
-
+import yaml
+import sys
 from subprocess import call 
+
+ESROCOS_YAML = "esrocos.yml"
+DEFAULT_PROJECT_NAME = "esrocos_project"
+SRC_DIR = "dataview/"
+INSTALL_DIR = "installed_types/"
 
 # READ YAML
 
 print "read esrocos.yml...",
+
+try:
+  with open(ESROCOS_YAML, 'r') as infile:
+
+    data = yaml.load(infile)
+
+    print data
+
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
 print "DONE"
+
+sys.exit()
 
 # EXTRACT OSDEPS
 
 
 # EXTRACT PKG DEPS
+
+print "installing shared types...\t", 
+sys.stdout.flush()
+
+SHARED_DIR = "../install/types/"
+
+aadl_files = []
+d = []
+ 
+for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
+  d.extend(dirnames)
+  break
+
+for dirname in d:
+  f = []  
+
+  try:
+    os.makedirs(INSTALL_DIR+dirname+"/asn")
+  except OSError as err:
+    if not err.errno == 17: 
+      raise err  
+
+  for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
+    f.extend(filenames)
+    
+    for filename in f:
+      try:
+#        print filename
+#        print "from: "+SHARED_DIR+dirname+"/asn/"+filename
+#        print "to: "+INSTALL_DIR+dirname+"/asn/"+filename
+        copyfile(SHARED_DIR+dirname+"/asn/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
+      except IOError as err:
+        raise err
+
+#getting asn and acn files from folder
+
+asn_acn_files = []
+asn_filenames = []
+
+for (dirpath, dirnames, filenames) in walk(SRC_DIR):
+  f.extend(filenames)
+  for filename in filenames:
+    if filename.endswith(".asn") or filename.endswith(".acn"):
+      if not filename in asn_filenames:
+        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+        asn_filenames.append(filename)
+      else: 
+        print "duplicate: "+filename
+
+for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
+  f.extend(filenames)
+  for filename in filenames:
+    if filename.endswith(".asn") or filename.endswith(".acn"):
+      if not filename in asn_filenames:
+        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
+        asn_filenames.append(filename)
+      else: 
+        print "duplicate: "+filename
+
+#print asn_acn_files
+
+asn_arguments = ["asn2aadlPlus"]
+asn_arguments.extend(asn_acn_files)
+asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
+
+call(asn_arguments)
 
 # EXTRACT UNKNOWN PKG DEPS
 
