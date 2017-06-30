@@ -108,23 +108,22 @@ except OSError as err:
 print "DONE"
 
 #CREATE ASN FILES
-print "copy taste-types...\t\t",
-sys.stdout.flush()
+#print "copy taste-types...\t\t",
+#sys.stdout.flush()
 
-proc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
-tasteconfig = proc.stdout.read().rstrip()
+#lproc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
+#tasteconfig = proc.stdout.read().rstrip()
 
-cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
+#cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
 
-call(cp_arguments)
+#call(cp_arguments)
 
-print "DONE"
+#print "DONE"
 
 print "create asn file...\t\t",
 
 data_view_asn = "ESROCOS-" + project_name.replace("_","-") + """ DEFINITIONS ::=
 BEGIN
-IMPORTS T-Boolean FROM TASTE-BasicTypes;
 
 MyDummyInteger::=INTEGER(0..255)
 -- Define your own data types and constants here 
@@ -149,7 +148,7 @@ asn1_args = ["which", "asn1.exe"]
 proc = subprocess.Popen(asn1_args, stdout=subprocess.PIPE)
 asn1 = proc.stdout.read().rstrip()
 
-mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') +".asn", SRC_DIR + "taste-types.asn"]
+mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') + '.asn']
 
 call(mono_args)
 

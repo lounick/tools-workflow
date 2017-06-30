@@ -1,36 +1,87 @@
 #!/usr/bin/env python
 import yaml
 import sys
+import xml.etree.cElementTree as ET
 from subprocess import call 
 
 ESROCOS_YAML = "esrocos.yml"
-DEFAULT_PROJECT_NAME = "esrocos_project"
-SRC_DIR = "dataview/"
-INSTALL_DIR = "installed_types/"
+
+project_name = ""
+SRC_DIR = ""
+INSTALL_DIR = ""
 
 # READ YAML
 
 print "read esrocos.yml...",
+
+data = []
 
 try:
   with open(ESROCOS_YAML, 'r') as infile:
 
     data = yaml.load(infile)
 
+    project_name = data["PROJECT_NAME"]
+    SRC_DIR = data["ASNACN_DIR"]
+    INSTALL_DIR = data["INSTALLED_TYPES_DIR"]
+   
     print data
 
-except IOError as err:
-  print "could not write to file, exit..."
+except IOError:
+  print "could not read esrocos.yml, aborting..."
+  sys.exit()
+except KeyError:
+  print "error parsing esrocos.yml, aborting..."
   sys.exit()
 
 print "DONE"
 
-sys.exit()
-
 # EXTRACT OSDEPS
 
+try:
+  os_deps = data['os_deps']
+except KeyError as err:
+  print "error in reading yml data, aborting..."
+  sys.exit()
+
+for dep in os_deps:
+  print dep
 
 # EXTRACT PKG DEPS
+
+try:
+  pkg_deps = data['pkg_deps']
+except KeyError as err:
+  print "error in reading yml data, aborting..."
+  sys.exit()
+
+for dep in pkg_deps:
+  print dep
+
+# EXTRACT UNKNOWN PKG DEPS
+
+# GENERATE tmp AUTOPROJ MANIFEST
+print "generate autoproj...",
+
+pkg = ET.Element("package")
+
+ET.SubElement(pkg, "depend", package="esrocos_base/types/base")
+ET.SubElement(pkg, "depend", package="esrocos_base/types/nonexistent")
+
+tree = ET.ElementTree(pkg)
+tree.write("manifest.xml")
+
+print "DONE"
+
+# TEMP PACKAGE SET FOR UNKNOWN DEPS
+
+# AUP
+
+aup_arguments = ["autoproj","update"]
+
+call(aup_arguments)
+sys.exit()
+# COPY ASN
 
 print "installing shared types...\t", 
 sys.stdout.flush()
@@ -97,22 +148,6 @@ asn_arguments.extend(asn_acn_files)
 asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
 
 call(asn_arguments)
-
-# EXTRACT UNKNOWN PKG DEPS
-
-# GENERATE AUTOPROJ MANIFEST
-
-print "generate autoproj...",
-
-print "DONE"
-
-# TEMP PACKAGE SET FOR UNKNOWN DEPS
-
-# AUP
-
-aup_arguments = ["autoproj","update"]
-
-call(aup_arguments)
 
 # CLEANUP
 
