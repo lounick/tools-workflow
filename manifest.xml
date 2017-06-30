@@ -1,0 +1,6 @@
+<package>
+    <description brief="ESROCOS command line tools">
+        command line tools to create, update and edit ESROCOS components
+    </description>
+    <author>Benjamin Kisliuk</author>
+</package>
