@@ -107,6 +107,21 @@ except OSError as err:
 
 print "DONE"
 
+# ADVERTISE PROJECT IN AUTOPROJ/LOCAL.AUTOBUILD
+print "create entry in local.autobuild...\t",
+
+path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/local.autobuild"
+
+try:
+  with open(path, 'a') as outfile:
+    outfile.write('import_package "'+project_name+'"')
+
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+print "DONE"
+
 #CREATE ASN FILES
 #print "copy taste-types...\t\t",
 #sys.stdout.flush()

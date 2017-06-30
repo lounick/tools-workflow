@@ -55,21 +55,18 @@ except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
 
-for dep in pkg_deps:
-  print dep
-
 # EXTRACT UNKNOWN PKG DEPS
 
 # GENERATE tmp AUTOPROJ MANIFEST
 print "generate autoproj...",
 
-pkg = ET.Element("package")
+package = ET.Element("package")
 
-ET.SubElement(pkg, "depend", package="esrocos_base/types/base")
-ET.SubElement(pkg, "depend", package="esrocos_base/types/nonexistent")
+for dep in pkg_deps:
+  ET.SubElement(package, "depend", package=dep)
 
-tree = ET.ElementTree(pkg)
-tree.write("manifest.xml")
+manifest = ET.ElementTree(package)
+manifest.write("manifest.xml")
 
 print "DONE"
 
@@ -80,7 +77,9 @@ print "DONE"
 aup_arguments = ["autoproj","update"]
 
 call(aup_arguments)
+
 sys.exit()
+
 # COPY ASN
 
 print "installing shared types...\t", 
