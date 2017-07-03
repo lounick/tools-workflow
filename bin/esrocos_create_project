@@ -70,13 +70,18 @@ while not user_input == "":
     pkg_deps.append(user_input)
 
 print pkg_deps
+print "please make sure these packages are either other locally developed esrocos components or to give additional version control information in the esrocos.yml"
 
 #GENERATE CONF FILE
 
 data = {}
 data["PROJECT_NAME"] = project_name
 data["os_deps"] = os_deps
-data["pkg_deps"] = pkg_deps
+data["pkg_deps"] = []
+
+for dep in pkg_deps:
+  data["pkg_deps"].append({dep:null})
+
 data["ASNACN_DIR"] = SRC_DIR
 data["INSTALLED_TYPES_DIR"] = INSTALL_DIR 
 
@@ -110,7 +115,7 @@ print "DONE"
 # ADVERTISE PROJECT IN AUTOPROJ/LOCAL.AUTOBUILD
 print "create entry in local.autobuild...\t",
 
-path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/local.autobuild"
+path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
 
 try:
   with open(path, 'a') as outfile:

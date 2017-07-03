@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import yaml
 import sys
+import os
 import xml.etree.cElementTree as ET
 from subprocess import call 
 
@@ -20,13 +21,10 @@ try:
   with open(ESROCOS_YAML, 'r') as infile:
 
     data = yaml.load(infile)
-
     project_name = data["PROJECT_NAME"]
     SRC_DIR = data["ASNACN_DIR"]
     INSTALL_DIR = data["INSTALLED_TYPES_DIR"]
-   
-    print data
-
+  
 except IOError:
   print "could not read esrocos.yml, aborting..."
   sys.exit()
@@ -47,7 +45,7 @@ except KeyError as err:
 for dep in os_deps:
   print dep
 
-# EXTRACT PKG DEPS
+# EXTRACT LOCAL AND REMOTE PKG DEPS
 
 try:
   pkg_deps = data['pkg_deps']
@@ -55,22 +53,69 @@ except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
 
-# EXTRACT UNKNOWN PKG DEPS
-
-# GENERATE tmp AUTOPROJ MANIFEST
-print "generate autoproj...",
+# GENERATE LOCAL manifest.xml
+print "generate manifest.xml",
 
 package = ET.Element("package")
 
+# generate entries for all packages to force package existence at compile time
 for dep in pkg_deps:
-  ET.SubElement(package, "depend", package=dep)
-
+  for key in dep:
+    if not dep[key]:
+      ET.SubElement(package, "depend", package=key)   
+  
 manifest = ET.ElementTree(package)
 manifest.write("manifest.xml")
 
-print "DONE"
+print "DONE" 
 
-# TEMP PACKAGE SET FOR UNKNOWN DEPS
+# GENERATE SOURCE ENTRIES FOR UNKNOWN DEPS
+print "trying to open existing overrides.yml"
+
+#open overrides.yml
+
+path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/overrides.yml"
+data = {}
+
+try:
+  with open(path, 'r') as overrides:
+    print "parsing yml data"
+    data = yaml.load(overrides)
+except IOError as err:
+  print "did not find existing overrides.yml..."
+  data = {'version_control':[]}
+
+# manipulate overrides.yml
+
+for dep in pkg_deps:
+  for key in dep:  
+    if key == 'github':  
+      data['version_control'].append(dep)
+
+# write back to overrides.yml
+try:
+  with open(path, 'w') as outfile:
+    yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
+except IOError as err:
+  print "could not write to file, aborting..."
+  sys.exit()
+
+# ADVERTISE LOCAL AND REMOTE DEPS IN LOCAL.AUTOBUILD
+path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+
+try:
+  with open(path, 'w') as outfile:
+    outfile.write('import_package "'+project_name+'"\n')
+    for dep in pkg_deps:
+      for key in dep: 
+        if not dep[key]:
+          outfile.write('import_package "'+key+'"\n')
+ 
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+print "DONE"
 
 # AUP
 
@@ -79,6 +124,20 @@ aup_arguments = ["autoproj","update"]
 call(aup_arguments)
 
 sys.exit()
+
+# REMOVE tmp FILES
+
+print "DONE"
+
+# remove manifest
+
+os.remove(path)
+
+# remove overrides.yml
+
+os.remove(path)
+
+print "clean tmp files...",
 
 # COPY ASN
 
@@ -148,8 +207,3 @@ asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", 
 
 call(asn_arguments)
 
-# CLEANUP
-
-print "clean tmp files...",
-
-print "DONE"
