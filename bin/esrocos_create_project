@@ -6,8 +6,6 @@ import yaml
 import sys
 import subprocess
 from subprocess import call 
-from os import walk
-from shutil import copyfile
 
 ESROCOS_YAML = "esrocos.yml"
 DEFAULT_PROJECT_NAME = "esrocos_project"

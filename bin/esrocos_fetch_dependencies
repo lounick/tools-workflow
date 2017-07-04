@@ -4,8 +4,12 @@ import sys
 import os
 import xml.etree.cElementTree as ET
 from subprocess import call 
+from os import walk
+from shutil import copyfile
+import re
 
 ESROCOS_YAML = "esrocos.yml"
+ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
 
 project_name = ""
 SRC_DIR = ""
@@ -73,8 +77,8 @@ print "DONE"
 # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
 # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
 
-localpath = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
-remotepath = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+localpath = ROOT_DIR+"/autoproj/"+project_name+".autobuild"
+remotepath = ROOT_DIR+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
 
 try:
   with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
@@ -103,7 +107,7 @@ print "trying to open existing source.yml"
 
 #open universe source.yml
 
-path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/source.yml"
+path = ROOT_DIR+"/autoproj/remotes/esrocos.universe/source.yml"
 data = {}
 
 try:
@@ -148,10 +152,14 @@ except IOError as err:
   sys.exit()
 
 # AUP
+print "calling aup...\t", 
+sys.stdout.flush()
 
 aup_arguments = ["autoproj","update"]
 
 call(aup_arguments)
+
+print "DONE"
 
 # REMOVE OLD FILES AND RESET CHANGES
 
@@ -167,43 +175,62 @@ call(aup_arguments)
 
 #print "DONE"
 
+# COPY ASN FILES FROM SHARED DIR TO LOCAL INSTALL DIR
 
-sys.exit()
+# create hash map of packages to copy from
 
-# COPY ASN
+deps_map = {}
 
-print "installing shared types...\t", 
+for dep in pkg_deps:
+  for key in dep:
+     if not dep[key]:
+       try: 
+         match = key.rsplit('/',1)[-1]
+         deps_map[match] = True
+       except AttributeError:
+         print "no match"            
+
+# walk directories and copy files
+print "locally installing shared types...\t", 
 sys.stdout.flush()
 
-SHARED_DIR = "../install/types/"
+SHARED_TYPES_DIR = ROOT_DIR+"/install/types/"
 
-aadl_files = []
-d = []
- 
-for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-  d.extend(dirnames)
+# walk through each directory in the installed types
+dirs = []
+
+for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR):
+  dirs.extend(dirnames)
   break
 
-for dirname in d:
-  f = []  
+for dirname in dirs:
 
+# proceed only if dir is the name of a dependency
+  try:
+    if not deps_map[dirname]:
+      continue
+  except KeyError:
+    continue
+
+# create install dir for dependency 
   try:
     os.makedirs(INSTALL_DIR+dirname+"/asn")
   except OSError as err:
     if not err.errno == 17: 
       raise err  
 
-  for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-    f.extend(filenames)
-    
-    for filename in f:
+# walk files in directory
+
+  for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR+"/"+dirname+"/asn"):
+    for filename in filenames:
       try:
-#        print filename
-#        print "from: "+SHARED_DIR+dirname+"/asn/"+filename
-#        print "to: "+INSTALL_DIR+dirname+"/asn/"+filename
-        copyfile(SHARED_DIR+dirname+"/asn/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
+        copyfile(dirpath+"/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
       except IOError as err:
         raise err
+
+print "DONE"
+
+# COMPILE ASN AND ACN TO MONOLITHIC AADL FILE
 
 #getting asn and acn files from folder
 
@@ -211,7 +238,6 @@ asn_acn_files = []
 asn_filenames = []
 
 for (dirpath, dirnames, filenames) in walk(SRC_DIR):
-  f.extend(filenames)
   for filename in filenames:
     if filename.endswith(".asn") or filename.endswith(".acn"):
       if not filename in asn_filenames:
@@ -221,7 +247,6 @@ for (dirpath, dirnames, filenames) in walk(SRC_DIR):
         print "duplicate: "+filename
 
 for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
-  f.extend(filenames)
   for filename in filenames:
     if filename.endswith(".asn") or filename.endswith(".acn"):
       if not filename in asn_filenames:
