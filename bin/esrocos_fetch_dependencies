@@ -69,30 +69,77 @@ manifest.write("manifest.xml")
 
 print "DONE" 
 
-# GENERATE SOURCE ENTRIES FOR UNKNOWN DEPS
-print "trying to open existing overrides.yml"
 
-#open overrides.yml
+# ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
+# ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
 
-path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/overrides.yml"
+localpath = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+remotepath = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+
+try:
+  with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
+    localout.write('import_package "'+project_name+'"\n')
+    for dep in pkg_deps:
+      name = ''
+      remote = False
+      for key in dep: 
+        if key == 'github':
+          remote = True
+        if not dep[key]:
+          name = key
+      if remote:
+        remoteout.write('import_package "'+name+'"\n')
+      else:
+        localout.write('import_package "'+name+'"\n')
+
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+print "DONE"
+
+# GENERATE SOURCE ENTRIES FOR REMOTE DEPS
+print "trying to open existing source.yml"
+
+#open universe source.yml
+
+path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/source.yml"
 data = {}
 
 try:
-  with open(path, 'r') as overrides:
-    print "parsing yml data"
-    data = yaml.load(overrides)
+  with open(path, 'r') as sources:
+    print "parsing source.yml data"
+    data = yaml.load(sources)
+    if not data['version_control']:
+      data['version_control'] = []
 except IOError as err:
-  print "did not find existing overrides.yml..."
+  print "did not find existing source.yml..."
   data = {'version_control':[]}
 
-# manipulate overrides.yml
+# create hash map of existing entries to avoid doubles
+
+existing_deps = {}
+for dep in data['version_control']:
+  for key in dep:
+    if not dep[key]:
+      existing_deps[key] = True
+
+# manipulate source.yml data
 
 for dep in pkg_deps:
-  for key in dep:  
-    if key == 'github':  
-      data['version_control'].append(dep)
+  name = ''
+  remote = False
 
-# write back to overrides.yml
+  for key in dep:  
+    if key == 'github':
+      remote = True
+    if not dep[key]:
+      name = key   
+  
+  if remote and not existing_deps[name]:
+    data['version_control'].append(dep)
+
+# write back to source.yml
 try:
   with open(path, 'w') as outfile:
     yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
@@ -100,44 +147,28 @@ except IOError as err:
   print "could not write to file, aborting..."
   sys.exit()
 
-# ADVERTISE LOCAL AND REMOTE DEPS IN LOCAL.AUTOBUILD
-path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
-
-try:
-  with open(path, 'w') as outfile:
-    outfile.write('import_package "'+project_name+'"\n')
-    for dep in pkg_deps:
-      for key in dep: 
-        if not dep[key]:
-          outfile.write('import_package "'+key+'"\n')
- 
-except IOError as err:
-  print "could not write to file, exit..."
-  sys.exit()
-
-print "DONE"
-
 # AUP
 
 aup_arguments = ["autoproj","update"]
 
 call(aup_arguments)
 
+# REMOVE OLD FILES AND RESET CHANGES
+
+#print "clean tmp files...",
+
+#remote_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+#local_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+#manifest_path = "manifest.xml"
+
+#os.remove(manifest_path)
+#os.remove(local_autobuild_path)
+#os.remove(remote_autobuild_path)
+
+#print "DONE"
+
+
 sys.exit()
-
-# REMOVE tmp FILES
-
-print "DONE"
-
-# remove manifest
-
-os.remove(path)
-
-# remove overrides.yml
-
-os.remove(path)
-
-print "clean tmp files...",
 
 # COPY ASN
 
