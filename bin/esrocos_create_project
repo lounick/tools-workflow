@@ -80,7 +80,7 @@ data["os_deps"] = os_deps
 data["pkg_deps"] = []
 
 for dep in pkg_deps:
-  data["pkg_deps"].append({dep:null})
+  data["pkg_deps"].append({dep:''})
 
 data["ASNACN_DIR"] = SRC_DIR
 data["INSTALLED_TYPES_DIR"] = INSTALL_DIR 

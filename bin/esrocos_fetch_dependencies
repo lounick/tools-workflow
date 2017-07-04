@@ -42,9 +42,6 @@ except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
 
-for dep in os_deps:
-  print dep
-
 # EXTRACT LOCAL AND REMOTE PKG DEPS
 
 try:
@@ -63,6 +60,9 @@ for dep in pkg_deps:
   for key in dep:
     if not dep[key]:
       ET.SubElement(package, "depend", package=key)   
+
+for dep in os_deps:
+  ET.SubElement(package, "depend", package=dep)
   
 manifest = ET.ElementTree(package)
 manifest.write("manifest.xml")
