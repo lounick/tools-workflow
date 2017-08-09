@@ -33,6 +33,6 @@ except KeyError:
 print "DONE"
 
 taste_arguments = ["taste-generate-skeletons"]
-taste_arguments.extend()
+taste_arguments.append(project_name+"_iv.aadl")
 
 call(taste-arguments)
