@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import yaml
+import sys
 from subprocess import call 
+import os
 
 ESROCOS_YAML = "esrocos.yml"
 ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
@@ -35,4 +37,4 @@ print "DONE"
 taste_arguments = ["taste-generate-skeletons"]
 taste_arguments.append(project_name+"_iv.aadl")
 
-call(taste-arguments)
+call(taste_arguments)

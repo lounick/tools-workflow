@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import yaml
+import sys
 from subprocess import call 
+import os
 
 ESROCOS_YAML = "esrocos.yml"
 ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
@@ -31,3 +33,31 @@ except KeyError:
   sys.exit()
 
 print "DONE"
+
+# DELETE OLD PRE INI SCRIPT
+try: 
+  os.remove("./user-init-pre.sh")
+except OSError:
+  print "no pre init file, creating..."
+
+# CREATE PRE INIT SCRIPT
+
+try:
+  with open("./user_init_pre.sh", 'w') as outfile:
+    outfile.write('export DEPLOYMENTVIEW="'+project_name+'_dp.aadl"\n\nexport ORCHESTRATOR_OPTIONS="--with-extra-lib x86_partition:bar/libtest"')
+   
+except IOError as err:
+  print "could not write to file, exit..."
+  sys.exit()
+
+# RUN BUILD SCRIPT
+
+taste_arguments = ["./build-script.sh"]
+
+call(taste_arguments)
+
+# REMOVE PRE INIT SCRIPT
+try: 
+  os.remove("./user_init_pre.sh")
+except OSError:
+  print "exit..."
