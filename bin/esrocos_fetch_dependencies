@@ -14,6 +14,7 @@ ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
 project_name = ""
 SRC_DIR = ""
 INSTALL_DIR = ""
+LOCAL_PROJECT = False
 
 # READ YAML
 
@@ -28,6 +29,7 @@ try:
     project_name = data["PROJECT_NAME"]
     SRC_DIR = data["ASNACN_DIR"]
     INSTALL_DIR = data["INSTALLED_TYPES_DIR"]
+    LOCAL_PROJECT = data["LOCAL_PROJECT"]
   
 except IOError:
   print "could not read esrocos.yml, aborting..."
@@ -38,6 +40,8 @@ except KeyError:
 
 print "DONE"
 
+
+ 
 # EXTRACT OSDEPS
 
 try:
@@ -45,7 +49,7 @@ try:
 except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
-
+  
 # EXTRACT LOCAL AND REMOTE PKG DEPS
 
 try:
@@ -54,102 +58,106 @@ except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
 
-# GENERATE LOCAL manifest.xml
-print "generate manifest.xml",
+if LOCAL_PROJECT:
 
-package = ET.Element("package")
+  # GENERATE LOCAL manifest.xml
+  print "generate manifest.xml",
 
-# generate entries for all packages to force package existence at compile time
-for dep in pkg_deps:
-  for key in dep:
-    if not dep[key]:
-      ET.SubElement(package, "depend", package=key)   
+  package = ET.Element("package")
 
-for dep in os_deps:
-  ET.SubElement(package, "depend", package=dep)
+  # generate entries for all packages to force package existence at compile time
+  for dep in pkg_deps:
+    for key in dep:
+      if not dep[key]:
+        ET.SubElement(package, "depend", package=key)   
+
+  for dep in os_deps:
+    ET.SubElement(package, "depend", package=dep)
   
-manifest = ET.ElementTree(package)
-manifest.write("manifest.xml")
+  manifest = ET.ElementTree(package)
+  manifest.write("manifest.xml")
 
-print "DONE" 
+  print "DONE" 
 
 
-# ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
-# ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
+  # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
+  # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
 
-localpath = ROOT_DIR+"/autoproj/"+project_name+".autobuild"
-remotepath = ROOT_DIR+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+  localpath = ROOT_DIR+"/autoproj/"+project_name+".autobuild"
+  remotepath = ROOT_DIR+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
 
-try:
-  with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
-    localout.write('import_package "'+project_name+'"\n')
-    for dep in pkg_deps:
-      name = ''
-      remote = False
-      for key in dep: 
-        if key == 'github':
-          remote = True
-        if not dep[key]:
-          name = key
-      if remote:
-        remoteout.write('import_package "'+name+'"\n')
-      else:
-        localout.write('import_package "'+name+'"\n')
+  try:
+    with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
+      localout.write('import_package "'+project_name+'"\n')
+      for dep in pkg_deps:
+        name = ''
+        remote = False
+        for key in dep: 
+          if key == 'github':
+            remote = True
+          if not dep[key]:
+            name = key
+        if remote:
+          remoteout.write('import_package "'+name+'"\n')
+        else:
+          localout.write('import_package "'+name+'"\n') 
 
-except IOError as err:
-  print "could not write to file, exit..."
-  sys.exit()
+  except IOError as err:
+    print "could not write to file, exit..."
+    sys.exit()
+ 
+  print "DONE"
 
-print "DONE"
+  # GENERATE SOURCE ENTRIES FOR REMOTE DEPS
+  print "trying to open existing source.yml"
 
-# GENERATE SOURCE ENTRIES FOR REMOTE DEPS
-print "trying to open existing source.yml"
+  #open universe source.yml
 
-#open universe source.yml
+  path = ROOT_DIR+"/autoproj/remotes/esrocos.universe/source.yml"
+  data = {}
 
-path = ROOT_DIR+"/autoproj/remotes/esrocos.universe/source.yml"
-data = {}
+  try:
+    with open(path, 'r') as sources:
+      print "parsing source.yml data"
+      data = yaml.load(sources)
+      if not data['version_control']:
+        data['version_control'] = []
+  except IOError as err:
+    print "did not find existing source.yml..."
+    data = {'version_control':[]}
 
-try:
-  with open(path, 'r') as sources:
-    print "parsing source.yml data"
-    data = yaml.load(sources)
-    if not data['version_control']:
-      data['version_control'] = []
-except IOError as err:
-  print "did not find existing source.yml..."
-  data = {'version_control':[]}
+  # create hash map of existing entries to avoid doubles
 
-# create hash map of existing entries to avoid doubles
+  existing_deps = {}
+  for dep in data['version_control']:
+    for key in dep:
+      if not dep[key]:
+        existing_deps[key] = True
 
-existing_deps = {}
-for dep in data['version_control']:
-  for key in dep:
-    if not dep[key]:
-      existing_deps[key] = True
+  # manipulate source.yml data
 
-# manipulate source.yml data
+  for dep in pkg_deps:
+    name = ''
+    remote = False
 
-for dep in pkg_deps:
-  name = ''
-  remote = False
-
-  for key in dep:  
-    if key == 'github':
-      remote = True
-    if not dep[key]:
-      name = key   
+    for key in dep:  
+      if key == 'github':
+        remote = True
+      if not dep[key]:
+        name = key   
   
-  if remote and not existing_deps[name]:
-    data['version_control'].append(dep)
+    if remote and not existing_deps[name]:
+      data['version_control'].append(dep)
 
-# write back to source.yml
-try:
-  with open(path, 'w') as outfile:
-    yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
-except IOError as err:
-  print "could not write to file, aborting..."
-  sys.exit()
+  # write back to source.yml
+  try:
+    with open(path, 'w') as outfile:
+      yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
+  except IOError as err:
+    print "could not write to file, aborting..."
+    sys.exit()
+
+#ENDIF LOCAL_PROJECT 
 
 # AUP
 print "calling aup...\t", 

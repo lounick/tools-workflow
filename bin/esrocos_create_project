@@ -11,6 +11,7 @@ ESROCOS_YAML = "esrocos.yml"
 DEFAULT_PROJECT_NAME = "esrocos_project"
 SRC_DIR = "dataview/"
 INSTALL_DIR = "installed_types/"
+LOCAL=True
 
 print "init esrocos project..."
 sys.stdout.flush()
@@ -76,7 +77,7 @@ data = {}
 data["PROJECT_NAME"] = project_name
 data["os_deps"] = os_deps
 data["pkg_deps"] = []
-
+data["LOCAL_PROJECT"] = LOCAL
 for dep in pkg_deps:
   data["pkg_deps"].append({dep:''})
 
