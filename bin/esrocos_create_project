@@ -11,7 +11,7 @@ ESROCOS_YAML = "esrocos.yml"
 DEFAULT_PROJECT_NAME = "esrocos_project"
 SRC_DIR = "dataview/"
 INSTALLED_TYPES_DIR = "installed_types/"
-INSTALLED_PKGS_DIR = "installed_pkgs"
+INSTALLED_PKGS_DIR = "installed_pkgs/"
 LOCAL=True
 
 print "init esrocos project..."
