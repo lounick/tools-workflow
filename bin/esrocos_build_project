@@ -3,14 +3,15 @@ import yaml
 import sys
 from subprocess import call 
 import os
+from os import walk
 
 ESROCOS_YAML = "esrocos.yml"
 ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
 
 project_name = ""
 SRC_DIR = ""
-INSTALL_DIR = ""
-
+INSTALLED_TYPES_DIR = ""
+INSTALLED_PKGS_DIR = ""
 # READ YAML
 
 print "read esrocos.yml...",
@@ -23,7 +24,8 @@ try:
     data = yaml.load(infile)
     project_name = data["PROJECT_NAME"]
     SRC_DIR = data["ASNACN_DIR"]
-    INSTALL_DIR = data["INSTALLED_TYPES_DIR"]
+    INSTALLED_TYPES_DIR = data["INSTALLED_TYPES_DIR"]
+    INSTALLED_PKGS_DIR = data["INSTALLED_PKGS_DIR"]
   
 except IOError:
   print "could not read esrocos.yml, aborting..."
@@ -42,9 +44,61 @@ except OSError:
 
 # CREATE PRE INIT SCRIPT
 
+build_partition = "x86_partition:"
+link_libraries = ""
+link_info_file = "linkings.yml"
+
+# walk through each directory in the installed packages
+dirs = []
+
+for (dirpath, dirnames, filenames) in walk(INSTALLED_PKGS_DIR):
+  dirs.extend(dirnames)
+  break
+
+dirs.append("..")
+first = True
+for dirname in dirs:
+
+# open link_library yml file
+
+  link_data = []
+
+  try:
+    with open(INSTALLED_PKGS_DIR+dirname+"/"+link_info_file, 'r') as infile:
+    
+      data = yaml.load(infile)
+      try:
+        link_data = data['libs']
+        try: 
+         
+          for lib in link_data:
+            if not first:
+              link_libraries += ","
+            else: 
+              first = False
+             
+            link_libraries += lib
+
+        except TypeError:
+          print "empty linking list, proceed..." 
+      except KeyError:
+        print "no link data, proceed..."
+  except IOError:
+    print "could not read linkings.yml in "+INSTALLED_PKGS_DIR+dirname+"/"+link_info_file+", aborting..."
+    sys.exit()
+  except KeyError:
+    print "could not read linkings.yml in "+INSTALLED_PKGS_DIR+dirname+"/"+link_info_file+", aborting..."
+    sys.exit()
+
+print link_libraries
+
+print "DONE"
+
+# write infos to user_init_pre.sh
+
 try:
   with open("./user_init_pre.sh", 'w') as outfile:
-    outfile.write('export DEPLOYMENTVIEW="'+project_name+'_dp.aadl"\n\nexport ORCHESTRATOR_OPTIONS="--with-extra-lib x86_partition:bar/libtest"')
+    outfile.write('export DEPLOYMENTVIEW="'+project_name+'_dp.aadl"\n\nexport ORCHESTRATOR_OPTIONS="--with-extra-lib '+build_partition+link_libraries+'"')
    
 except IOError as err:
   print "could not write to file, exit..."

@@ -13,7 +13,8 @@ ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
 
 project_name = ""
 SRC_DIR = ""
-INSTALL_DIR = ""
+INSTALLED_TYPES_DIR = ""
+INSTALLED_PKGS_DIR = ""
 LOCAL_PROJECT = False
 
 # READ YAML
@@ -28,9 +29,10 @@ try:
     data = yaml.load(infile)
     project_name = data["PROJECT_NAME"]
     SRC_DIR = data["ASNACN_DIR"]
-    INSTALL_DIR = data["INSTALLED_TYPES_DIR"]
+    INSTALLED_TYPES_DIR = data["INSTALLED_TYPES_DIR"]
+    INSTALLED_PKGS_DIR = data["INSTALLED_PKGS_DIR"]
     LOCAL_PROJECT = data["LOCAL_PROJECT"]
-  
+
 except IOError:
   print "could not read esrocos.yml, aborting..."
   sys.exit()
@@ -40,8 +42,6 @@ except KeyError:
 
 print "DONE"
 
-
- 
 # EXTRACT OSDEPS
 
 try:
@@ -49,7 +49,7 @@ try:
 except KeyError as err:
   print "error in reading yml data, aborting..."
   sys.exit()
-  
+
 # EXTRACT LOCAL AND REMOTE PKG DEPS
 
 try:
@@ -71,14 +71,17 @@ if LOCAL_PROJECT:
       if not dep[key]:
         ET.SubElement(package, "depend", package=key)   
 
-  for dep in os_deps:
-    ET.SubElement(package, "depend", package=dep)
+  #for dep in os_deps:
+    #print "dep " + dep + " - exists: " + str(pkgconfig.exists('opencv'))
+
+   # ET.SubElement(package, "depend", package=dep)
   
+  #sys.exit()
+
   manifest = ET.ElementTree(package)
   manifest.write("manifest.xml")
 
-  print "DONE" 
-
+  print "DONE"
 
   # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
   # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
@@ -88,7 +91,7 @@ if LOCAL_PROJECT:
 
   try:
     with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
-      localout.write('import_package "'+project_name+'"\n')
+      localout.write('cmake_package "'+project_name+'"\n')
       for dep in pkg_deps:
         name = ''
         remote = False
@@ -98,9 +101,9 @@ if LOCAL_PROJECT:
           if not dep[key]:
             name = key
         if remote:
-          remoteout.write('import_package "'+name+'"\n')
+          remoteout.write('cmake_package "'+name+'"\n')
         else:
-          localout.write('import_package "'+name+'"\n') 
+          localout.write('cmake_package "'+name+'"\n') 
 
   except IOError as err:
     print "could not write to file, exit..."
@@ -183,7 +186,7 @@ print "DONE"
 
 #print "DONE"
 
-# COPY ASN FILES FROM SHARED DIR TO LOCAL INSTALL DIR
+# INSTALL DEPS IN PROJECT DIR
 
 # create hash map of packages to copy from
 
@@ -197,6 +200,66 @@ for dep in pkg_deps:
          deps_map[match] = True
        except AttributeError:
          print "no match"            
+
+# COPY INTERFACE AND SOURCE FILES TO LOCAL INSTALL DIR
+
+# create installed_pkgs dir
+
+  try:
+    os.makedirs(INSTALLED_PKGS_DIR)
+  except OSError as err:
+    if not err.errno == 17: 
+      raise err
+
+# walk directories and copy files
+print "locally installing shared components...\t", 
+sys.stdout.flush()
+
+SHARED_COMPONENTS_DIR = ROOT_DIR+"/install/components/"
+
+# walk through each directory in the installed types
+dirs = []
+
+for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR):
+  dirs.extend(dirnames)
+  break
+
+for dirname in dirs:
+
+# proceed only if dir is the name of a dependency
+  try:
+    if not deps_map[dirname]:
+      continue
+  except KeyError:
+    continue
+
+  try:
+    os.symlink(SHARED_COMPONENTS_DIR+"/"+dirname,INSTALLED_PKGS_DIR+dirname)
+  except OSError as err: 
+    if not err.errno == 17: 
+      raise err
+
+# create install dir for dependency 
+#  try:
+#    os.makedirs(INSTALLED_PKGS_DIR+dirname)
+#  except OSError as err:
+#    if not err.errno == 17: 
+#      raise err  
+
+# walk files in directory
+
+#  for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR+"/"+dirname):
+#    for filename in filenames:
+#      try:
+#        copyfile(dirpath+"/"+filename,INSTALLED_PKGS_DIR+dirname+"/"+filename)
+#      except IOError as err:
+#        raise err
+
+print "DONE"
+
+# COPY ASN FILES FROM SHARED DIR TO LOCAL INSTALL DIR
+
+
 
 # walk directories and copy files
 print "locally installing shared types...\t", 
@@ -222,7 +285,7 @@ for dirname in dirs:
 
 # create install dir for dependency 
   try:
-    os.makedirs(INSTALL_DIR+dirname+"/asn")
+    os.makedirs(INSTALLED_TYPES_DIR+dirname+"/asn")
   except OSError as err:
     if not err.errno == 17: 
       raise err  
@@ -232,7 +295,7 @@ for dirname in dirs:
   for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR+"/"+dirname+"/asn"):
     for filename in filenames:
       try:
-        copyfile(dirpath+"/"+filename,INSTALL_DIR+dirname+"/asn/"+filename)
+        copyfile(dirpath+"/"+filename,INSTALLED_TYPES_DIR+dirname+"/asn/"+filename)
       except IOError as err:
         raise err
 
@@ -254,7 +317,7 @@ for (dirpath, dirnames, filenames) in walk(SRC_DIR):
       else: 
         print "duplicate: "+filename
 
-for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
+for (dirpath, dirnames, filenames) in walk(INSTALLED_TYPES_DIR):
   for filename in filenames:
     if filename.endswith(".asn") or filename.endswith(".acn"):
       if not filename in asn_filenames:
@@ -267,7 +330,7 @@ for (dirpath, dirnames, filenames) in walk(INSTALL_DIR):
 
 asn_arguments = ["asn2aadlPlus"]
 asn_arguments.extend(asn_acn_files)
-asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
+asn_arguments.append(os.getcwd()+ "/" + INSTALLED_TYPES_DIR + project_name.replace(" ", "_") + "_dv.aadl")
 
 call(asn_arguments)
 
