@@ -51,9 +51,9 @@ link_info_file = "linkings.yml"
 # walk through each directory in the installed packages
 dirs = []
 
-for (dirpath, dirnames, filenames) in walk(INSTALLED_PKGS_DIR):
-  dirs.extend(dirnames)
-  break
+#for (dirpath, dirnames, filenames) in walk(INSTALLED_PKGS_DIR):
+#  dirs.extend(dirnames)
+#  break
 
 dirs.append("..")
 first = True
@@ -90,7 +90,7 @@ for dirname in dirs:
     print "could not read linkings.yml in "+INSTALLED_PKGS_DIR+dirname+"/"+link_info_file+", aborting..."
     sys.exit()
 
-print link_libraries
+#print link_libraries
 
 print "DONE"
 
