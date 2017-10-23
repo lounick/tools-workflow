@@ -6,13 +6,12 @@ import yaml
 import sys
 import subprocess
 from subprocess import call 
-from os import walk
-from shutil import copyfile
 
 ESROCOS_YAML = "esrocos.yml"
-DEFAULT_PROJECT_NAME = "esrocos_project"
 SRC_DIR = "dataview/"
-INSTALL_DIR = "installed_types/"
+INSTALLED_TYPES_DIR = "installed_types/"
+INSTALLED_PKGS_DIR = "installed_pkgs/"
+LOCAL=True
 
 print "init esrocos project..."
 sys.stdout.flush()
@@ -28,16 +27,8 @@ if len(sys.argv) == 2:
     if not os.path.isdir(path):
       raise
 
-elif len(sys.argv) == 1: 
-
-  #asking for project info
-  print "Please enter some project info"
-  project_name = DEFAULT_PROJECT_NAME
-  #projectName = raw_input("Please enter the name of the project: ")
-  print "Project name:"+ project_name
-
 else: 
-  print "usage: esrocos_create_project [project name]"
+  print "usage: esrocos_create_project <project name>"
   sys.exit()
 
 
@@ -78,15 +69,21 @@ while not user_input == "":
     pkg_deps.append(user_input)
 
 print pkg_deps
+print "please make sure these packages are either other locally developed esrocos components or to give additional version control information in the esrocos.yml"
 
 #GENERATE CONF FILE
 
 data = {}
 data["PROJECT_NAME"] = project_name
 data["os_deps"] = os_deps
-data["pkg_deps"] = pkg_deps
+data["pkg_deps"] = []
+data["LOCAL_PROJECT"] = LOCAL
+for dep in pkg_deps:
+  data["pkg_deps"].append({dep:''})
+
 data["ASNACN_DIR"] = SRC_DIR
-data["INSTALLED_TYPES_DIR"] = INSTALL_DIR 
+data["INSTALLED_TYPES_DIR"] = INSTALLED_TYPES_DIR 
+data["INSTALLED_PKGS_DIR"] = INSTALLED_PKGS_DIR
 
 try:
   with open(ESROCOS_YAML, 'w') as outfile:
@@ -107,7 +104,7 @@ except OSError as err:
     raise
 
 try: 
-  os.makedirs(INSTALL_DIR)
+  os.makedirs(INSTALLED_TYPES_DIR)
 except OSError as err:
   if not err.errno == 17: 
     print "FAILED"
@@ -115,24 +112,38 @@ except OSError as err:
 
 print "DONE"
 
+# ADVERTISE PROJECT IN AUTOPROJ/LOCAL.AUTOBUILD
+#print "create local autobuild...\t",
+
+#path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+
+#try:
+#  with open(path, 'a') as outfile:
+#    outfile.write('import_package "'+project_name+'"')
+
+#except IOError as err:
+#  print "could not write to file, exit..."
+#  sys.exit()
+
+#print "DONE"
+
 #CREATE ASN FILES
-print "copy taste-types...\t\t",
-sys.stdout.flush()
+#print "copy taste-types...\t\t",
+#sys.stdout.flush()
 
-proc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
-tasteconfig = proc.stdout.read().rstrip()
+#lproc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
+#tasteconfig = proc.stdout.read().rstrip()
 
-cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
+#cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
 
-call(cp_arguments)
+#call(cp_arguments)
 
-print "DONE"
+#print "DONE"
 
 print "create asn file...\t\t",
 
 data_view_asn = "ESROCOS-" + project_name.replace("_","-") + """ DEFINITIONS ::=
 BEGIN
-IMPORTS T-Boolean FROM TASTE-BasicTypes;
 
 MyDummyInteger::=INTEGER(0..255)
 -- Define your own data types and constants here 
@@ -157,62 +168,60 @@ asn1_args = ["which", "asn1.exe"]
 proc = subprocess.Popen(asn1_args, stdout=subprocess.PIPE)
 asn1 = proc.stdout.read().rstrip()
 
-mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') +".asn", SRC_DIR + "taste-types.asn"]
+mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') + '.asn']
 
 call(mono_args)
 
 print"DONE"
-#INSTALLING DEPENDENCY TYPES
-print "installing shared types...\t", 
-sys.stdout.flush()
-
-SHARED_DIR = "../esrocos_shared_types/"
-
-aadl_files = []
-f = []
- 
-for (dirpath, dirnames, filenames) in walk(SHARED_DIR):
-  f.extend(filenames)
-  break
-
-
-for filename in f:
-  try:
-    copyfile(SHARED_DIR+filename,INSTALL_DIR+filename)
-  except IOError as err:
-    raise err
-
-print "DONE"
-
 #GENERATE DATA VIEW
 print "generate data view files...\t", 
 sys.stdout.flush()
 
-  #getting asn and acn files from folder
-
-asn_acn_files = []
-f = []
-
-for (dirpath, dirnames, filenames) in walk(SRC_DIR):
-  f.extend(filenames)
-  break
-
-for filename in f:
-  path = ""
-  if filename.endswith(".asn"):
-    path = path + os.getcwd() + "/" + SRC_DIR + filename 
-    asn_acn_files.append(path)
-  if filename.endswith(".acn"):
-    path = path + os.getcwd() + "/" + SRC_DIR + filename 
-    asn_acn_files.append(path)
-
-asn_arguments = ["asn2aadlPlus"]
-asn_arguments.extend(asn_acn_files)
-asn_arguments.append(os.getcwd()+ "/" + INSTALL_DIR + project_name.replace(" ", "_") + "_dv.aadl")
-
-call(asn_arguments)
-
 print "DONE"
 
+# COPY CMAKE TEMPLATE
+print "generate CMakeLists.txt...\t",
+
+try:
+  inpath = os.environ['ESROCOS_TEMPLATES'] + "/CMakeLists.txt.in"
+  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/CMakeLists.txt"
+  
+  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
+    # read
+    data = infile.read()
+    # replace  
+    data = data.replace("@PROJECT@", project_name)
+    dara = data.replace("@FILE@", outpath)
+
+    # write
+    outfile.write(data)
+
+except IOError as err:
+  print "FAILED"
+  raise
+else:
+  print "DONE"
+
+# COPY PKG-CONFIG TEMPLATE
+print "generate " + project_name + ".pc.in...\t\t",
+
+try:
+  inpath = os.environ['ESROCOS_TEMPLATES'] + "/pkg-config-template.pc.in"
+  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/"+ project_name +".pc.in"
+  
+  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
+    # read
+    data = infile.read()
+    # replace  
+    data = data.replace("@PROJECT@", project_name)
+    # write
+    outfile.write(data)
+
+except IOError as err:
+  print "FAILED"
+  raise
+else:
+  print "DONE"
+
 #FINALLY
-print "ESROCOS project initialized successfully. Edit the project by calling 'esrocos_edit_project'"
+print "ESROCOS project initialized successfully. Fetch Dependencies with esrocos_fetch_dependencies then edit the project by calling 'esrocos_edit_project'"
