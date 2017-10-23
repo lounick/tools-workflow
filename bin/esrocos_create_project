@@ -8,7 +8,6 @@ import subprocess
 from subprocess import call 
 
 ESROCOS_YAML = "esrocos.yml"
-DEFAULT_PROJECT_NAME = "esrocos_project"
 SRC_DIR = "dataview/"
 INSTALLED_TYPES_DIR = "installed_types/"
 INSTALLED_PKGS_DIR = "installed_pkgs/"
@@ -114,19 +113,19 @@ except OSError as err:
 print "DONE"
 
 # ADVERTISE PROJECT IN AUTOPROJ/LOCAL.AUTOBUILD
-print "create entry in local.autobuild...\t",
+#print "create local autobuild...\t",
 
-path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+#path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
 
-try:
-  with open(path, 'a') as outfile:
-    outfile.write('import_package "'+project_name+'"')
+#try:
+#  with open(path, 'a') as outfile:
+#    outfile.write('import_package "'+project_name+'"')
 
-except IOError as err:
-  print "could not write to file, exit..."
-  sys.exit()
+#except IOError as err:
+#  print "could not write to file, exit..."
+#  sys.exit()
 
-print "DONE"
+#print "DONE"
 
 #CREATE ASN FILES
 #print "copy taste-types...\t\t",
@@ -174,12 +173,55 @@ mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace('
 call(mono_args)
 
 print"DONE"
-
 #GENERATE DATA VIEW
 print "generate data view files...\t", 
 sys.stdout.flush()
 
 print "DONE"
+
+# COPY CMAKE TEMPLATE
+print "generate CMakeLists.txt...\t",
+
+try:
+  inpath = os.environ['ESROCOS_TEMPLATES'] + "/CMakeLists.txt.in"
+  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/CMakeLists.txt"
+  
+  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
+    # read
+    data = infile.read()
+    # replace  
+    data = data.replace("@PROJECT@", project_name)
+    dara = data.replace("@FILE@", outpath)
+
+    # write
+    outfile.write(data)
+
+except IOError as err:
+  print "FAILED"
+  raise
+else:
+  print "DONE"
+
+# COPY PKG-CONFIG TEMPLATE
+print "generate " + project_name + ".pc.in...\t\t",
+
+try:
+  inpath = os.environ['ESROCOS_TEMPLATES'] + "/pkg-config-template.pc.in"
+  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/"+ project_name +".pc.in"
+  
+  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
+    # read
+    data = infile.read()
+    # replace  
+    data = data.replace("@PROJECT@", project_name)
+    # write
+    outfile.write(data)
+
+except IOError as err:
+  print "FAILED"
+  raise
+else:
+  print "DONE"
 
 #FINALLY
 print "ESROCOS project initialized successfully. Fetch Dependencies with esrocos_fetch_dependencies then edit the project by calling 'esrocos_edit_project'"
