@@ -19,7 +19,7 @@ LOCAL_PROJECT = False
 
 # READ YAML
 
-print "read esrocos.yml...",
+print "read esrocos.yml...\t\t\t",
 
 data = []
 
@@ -61,7 +61,7 @@ except KeyError as err:
 if LOCAL_PROJECT:
 
   # GENERATE LOCAL manifest.xml
-  print "generate manifest.xml",
+  print "generate manifest.xml...\t\t",
 
   package = ET.Element("package")
 
@@ -85,6 +85,8 @@ if LOCAL_PROJECT:
 
   # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
   # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
+
+  print "write info to local.autobuild...\t",
 
   localpath = ROOT_DIR+"/autoproj/"+project_name+".autobuild"
   remotepath = ROOT_DIR+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
@@ -113,7 +115,8 @@ if LOCAL_PROJECT:
   print "DONE"
 
   # GENERATE SOURCE ENTRIES FOR REMOTE DEPS
-  print "trying to open existing source.yml"
+  print "looking for existing source.yml\t\t",
+  sys.stdout.flush()
 
   #open universe source.yml
 
@@ -122,12 +125,13 @@ if LOCAL_PROJECT:
 
   try:
     with open(path, 'r') as sources:
-      print "parsing source.yml data"
+      print "DONE"
+      print "parsing source.yml data...\t\t",
       data = yaml.load(sources)
       if not data['version_control']:
         data['version_control'] = []
   except IOError as err:
-    print "did not find existing source.yml..."
+    print "FAILED"
     data = {'version_control':[]}
 
   # create hash map of existing entries to avoid doubles
@@ -161,17 +165,23 @@ if LOCAL_PROJECT:
     print "could not write to file, aborting..."
     sys.exit()
 
+print "DONE"
+
 #ENDIF LOCAL_PROJECT 
 
 # AUP
-print "calling aup...\t", 
-sys.stdout.flush()
+print "calling aup, checking out deps ..."
 
-aup_arguments = ["autoproj","update"]
-
+aup_arguments = ["aup", project_name]
 call(aup_arguments)
 
-print "DONE"
+print "calling amake, installing deps..."
+
+for dep in pkg_deps:
+  for key in dep:
+    if not dep[key]:
+      amake_arguments = ["amake", key]
+      call(amake_arguments)
 
 # REMOVE OLD FILES AND RESET CHANGES
 
@@ -192,13 +202,18 @@ print "DONE"
 # create hash map of packages to copy from
 
 deps_map = {}
+types_map = {}
 
 for dep in pkg_deps:
   for key in dep:
      if not dep[key]:
        try: 
-         match = key.rsplit('/',1)[-1]
-         deps_map[match] = True
+         if key.startswith("types"):
+           match = key.rsplit('/',1)[-1]
+           types_map[match] = True       
+         else: 
+           match = key.rsplit('/',1)[-1]
+           deps_map[match] = True
        except AttributeError:
          print "no match"            
 
@@ -218,7 +233,7 @@ sys.stdout.flush()
 
 SHARED_COMPONENTS_DIR = ROOT_DIR+"/install/components/"
 
-# walk through each directory in the installed types
+# walk through each directory in the installed components
 dirs = []
 
 for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR):
@@ -226,41 +241,29 @@ for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR):
   break
 
 for dirname in dirs:
-
 # proceed only if dir is the name of a dependency
   try:
     if not deps_map[dirname]:
-      continue
+      continue    
   except KeyError:
     continue
-
   try:
+    del deps_map[dirname]
     os.symlink(SHARED_COMPONENTS_DIR+"/"+dirname,INSTALLED_PKGS_DIR+dirname)
   except OSError as err: 
     if not err.errno == 17: 
       raise err
 
-# create install dir for dependency 
-#  try:
-#    os.makedirs(INSTALLED_PKGS_DIR+dirname)
-#  except OSError as err:
-#    if not err.errno == 17: 
-#      raise err  
-
-# walk files in directory
-
-#  for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR+"/"+dirname):
-#    for filename in filenames:
-#      try:
-#        copyfile(dirpath+"/"+filename,INSTALLED_PKGS_DIR+dirname+"/"+filename)
-#      except IOError as err:
-#        raise err
+if len(deps_map) > 0:
+  print "FAILED"
+  print "not all component dependencies could be resolved:"
+  for dep in deps_map:
+    print dep
+  sys.exit()
 
 print "DONE"
 
 # COPY ASN FILES FROM SHARED DIR TO LOCAL INSTALL DIR
-
-
 
 # walk directories and copy files
 print "locally installing shared types...\t", 
@@ -279,8 +282,10 @@ for dirname in dirs:
 
 # proceed only if dir is the name of a dependency
   try:
-    if not deps_map[dirname]:
+    if not types_map[dirname]:
       continue
+    else:
+      del types_map[dirname]
   except KeyError:
     continue
 
@@ -300,9 +305,20 @@ for dirname in dirs:
       except IOError as err:
         raise err
 
+if len(types_map) > 0:
+  print "FAILED"
+  print "not all type dependencies could be resolved:"
+  for dep in types_map:
+    print dep
+  sys.exit()
+
+
 print "DONE"
 
 # COMPILE ASN AND ACN TO MONOLITHIC AADL FILE
+
+print "compiling types to aadl...\t\t",
+sys.stdout.flush()
 
 #getting asn and acn files from folder
 
@@ -335,3 +351,4 @@ asn_arguments.append(os.getcwd()+ "/" + INSTALLED_TYPES_DIR + project_name.repla
 
 call(asn_arguments)
 
+print "DONE"

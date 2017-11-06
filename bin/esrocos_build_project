@@ -51,12 +51,9 @@ link_info_file = "linkings.yml"
 # walk through each directory in the installed packages
 dirs = []
 
-#for (dirpath, dirnames, filenames) in walk(INSTALLED_PKGS_DIR):
-#  dirs.extend(dirnames)
-#  break
-
 dirs.append("..")
 first = True
+
 for dirname in dirs:
 
 # open link_library yml file
