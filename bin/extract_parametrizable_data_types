@@ -1,0 +1,116 @@
+#!/usr/bin/env ruby
+require 'optparse'
+require 'yaml'
+
+class TypeArgument
+	attr_accessor :argument_type
+	attr_accessor :argument_name
+
+	def initialize(argument_type, argument_name)
+		@argument_type = argument_type
+		@argument_name = argument_name
+	end
+
+	def to_map
+		return {self.argument_name => self.argument_type}
+	end
+
+	def to_s
+		return "#{self.argument_type}:#{self.argument_name}"
+	end
+
+	def inspect
+		return "TypeArgument(#{to_s})"
+	end
+end
+
+class ParametrizableType
+	attr_accessor :type_name
+	attr_accessor :arguments
+
+	def initialize(type_name=nil, arguments=[])
+		@type_name = type_name
+		@arguments = arguments
+	end
+
+	def to_map
+		arg_map = {}
+		self.arguments.each do |p|
+			arg_map = arg_map.merge(p.to_map)
+		end
+		return {self.type_name => arg_map}
+	end
+
+	def to_s
+		return "#{self.type_name}: #{self.arguments.to_s}"
+	end
+
+	def inspect
+		return "ParametrizableType(#{to_s})"
+	end
+end
+
+
+"""
+--- Analogue measurement
+AnalogueMeasureme4nt{T-UInt16: maxSamples, T-UInt16: maxSamples2} ::=
+SEQUENCE
+
+===>
+
+Match 1
+1.	AnalogueMeasureme4nt
+2.	T-UInt16: maxSamples, T-UInt16: maxSamples2
+"""
+def match_regex(filepath)
+	matches = {}
+	File.open(filepath, "r") do |file_handle|
+		file_handle.each_line do |li|
+			res = /(\w+)\{(.+)\}.*(?=\:\:\=)/.match(li)
+			if (res)
+				arg_param_name = res[1]
+				arg_param_types = res[2].split(',').map do |arg|
+					splitted = arg.split(':').map do |d| d.strip() end
+					TypeArgument.new(splitted[0], splitted[1])
+				end
+				parametrizable = ParametrizableType.new(arg_param_name, arg_param_types)
+				matches[arg_param_name] = parametrizable
+			end
+		end
+	end
+	return matches
+end
+
+if __FILE__ == $0
+    opt_parser = OptionParser.new do |opts|
+      opts.banner = "Usage: extract_parametrizable_data_types [options] ASN1_FILE_1 [ASN1_FILE_2 ...]"
+
+      opts.on("-h", "--help", "Prints this help") do
+        puts opts
+        exit
+      end
+    end
+
+    opt_parser.parse!(ARGV)
+    
+    ans1_files = ARGV
+
+    if ans1_files.size < 1
+    	puts "ERROR: No ASN 1 file was given as argument.\n"
+    	puts opt_parser
+    	exit 1
+    end
+
+    all_matches = {}
+    for filepath in ans1_files
+    	matches = match_regex(filepath)
+    	all_matches = all_matches.merge(matches)
+    end
+
+    map = {}
+    all_matches.values.each do |p|
+    	map = map.merge(p.to_map)
+    end
+    puts map.to_yaml
+    exit 0
+end
