@@ -256,10 +256,9 @@ for dirname in dirs:
 
 if len(deps_map) > 0:
   print "FAILED"
-  print "not all component dependencies could be resolved:"
+  print "WARNING: not all component dependencies could be resolved:"
   for dep in deps_map:
     print dep
-  sys.exit()
 
 print "DONE"
 

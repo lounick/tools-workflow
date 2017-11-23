@@ -48,54 +48,51 @@ build_partition = "x86_partition:"
 link_libraries = ""
 link_info_file = "linkings.yml"
 
-# walk through each directory in the installed packages
-dirs = []
 
-dirs.append("..")
 first = True
-
-for dirname in dirs:
 
 # open link_library yml file
 
-  link_data = []
+link_data = []
 
-  try:
-    with open(INSTALLED_PKGS_DIR+dirname+"/"+link_info_file, 'r') as infile:
-    
-      data = yaml.load(infile)
-      try:
-        link_data = data['libs']
-        try: 
-         
-          for lib in link_data:
-            if not first:
-              link_libraries += ","
-            else: 
-              first = False
-             
-            link_libraries += lib
-
-        except TypeError:
-          print "empty linking list, proceed..." 
-      except KeyError:
-        print "no link data, proceed..."
-  except IOError:
-    print "could not read linkings.yml in "+INSTALLED_PKGS_DIR+dirname+"/"+link_info_file+", aborting..."
-    sys.exit()
-  except KeyError:
-    print "could not read linkings.yml in "+INSTALLED_PKGS_DIR+dirname+"/"+link_info_file+", aborting..."
-    sys.exit()
-
-#print link_libraries
+try:
+  with open(link_info_file, 'r') as infile:
+  
+    data = yaml.load(infile)
+    try:
+      link_data = data['libs']
+      try: 
+        
+        for lib in link_data:
+          if not first:
+            link_libraries += ","
+          else: 
+            first = False
+           
+          link_libraries += lib
+      except TypeError:
+        print "empty linking list, proceed..." 
+    except KeyError:
+      print "no link data, proceed..."
+except IOError:
+  print "could not read linkings.yml in "+link_info_file+", aborting..."
+  sys.exit()
+except KeyError:
+  print "could not read linkings.yml in "+link_info_file+", aborting..."
+  sys.exit()
 
 print "DONE"
 
 # write infos to user_init_pre.sh
 
+orchestrator_options = ""
+
+if link_libraries != "":
+  orchestrator_options = 'export ORCHESTRATOR_OPTIONS="--with-extra-lib '+build_partition+link_libraries+'"'
+
 try:
   with open("./user_init_pre.sh", 'w') as outfile:
-    outfile.write('export DEPLOYMENTVIEW="'+project_name+'_dp.aadl"\n\nexport ORCHESTRATOR_OPTIONS="--with-extra-lib '+build_partition+link_libraries+'"')
+    outfile.write('export DEPLOYMENTVIEW="'+project_name+'_dp.aadl"\n\n'+orchestrator_options)
    
 except IOError as err:
   print "could not write to file, exit..."
