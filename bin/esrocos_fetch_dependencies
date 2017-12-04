@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-import yaml
-import sys
+
+from __future__ import print_function
 import os
-import xml.etree.cElementTree as ET
-from subprocess import call 
 from os import walk
-from shutil import copyfile
 import re
+from shutil import copyfile
+from subprocess import call
+import sys
+import xml.etree.cElementTree as ET
+import yaml
 
 ESROCOS_YAML = "esrocos.yml"
 ROOT_DIR = os.environ['AUTOPROJ_CURRENT_ROOT']
@@ -19,183 +21,182 @@ LOCAL_PROJECT = False
 
 # READ YAML
 
-print "read esrocos.yml...\t\t\t",
+print("read esrocos.yml...\t\t\t", end="")
 
 data = []
 
 try:
-  with open(ESROCOS_YAML, 'r') as infile:
-
-    data = yaml.load(infile)
-    project_name = data["PROJECT_NAME"]
-    SRC_DIR = data["ASNACN_DIR"]
-    INSTALLED_TYPES_DIR = data["INSTALLED_TYPES_DIR"]
-    INSTALLED_PKGS_DIR = data["INSTALLED_PKGS_DIR"]
-    LOCAL_PROJECT = data["LOCAL_PROJECT"]
-
+    with open(ESROCOS_YAML, 'r') as infile:
+        data = yaml.load(infile)
+        project_name = data["PROJECT_NAME"]
+        SRC_DIR = data["ASNACN_DIR"]
+        INSTALLED_TYPES_DIR = data["INSTALLED_TYPES_DIR"]
+        INSTALLED_PKGS_DIR = data["INSTALLED_PKGS_DIR"]
+        LOCAL_PROJECT = data["LOCAL_PROJECT"]
 except IOError:
-  print "could not read esrocos.yml, aborting..."
-  sys.exit()
+    print("could not read esrocos.yml, aborting...")
+    sys.exit()
 except KeyError:
-  print "error parsing esrocos.yml, aborting..."
-  sys.exit()
+    print("error parsing esrocos.yml, aborting...")
+    sys.exit()
 
-print "DONE"
+print("DONE")
 
 # EXTRACT OSDEPS
 
 try:
-  os_deps = data['os_deps']
+    os_deps = data['os_deps']
 except KeyError as err:
-  print "error in reading yml data, aborting..."
-  sys.exit()
+    print("error in reading yml data, aborting...")
+    sys.exit()
 
 # EXTRACT LOCAL AND REMOTE PKG DEPS
 
 try:
-  pkg_deps = data['pkg_deps']
+    pkg_deps = data['pkg_deps']
 except KeyError as err:
-  print "error in reading yml data, aborting..."
-  sys.exit()
+    print("error in reading yml data, aborting...")
+    sys.exit()
 
 if LOCAL_PROJECT:
+    # GENERATE LOCAL manifest.xml
+    print("generate manifest.xml...\t\t", end="")
+    package = ET.Element("package")
 
-  # GENERATE LOCAL manifest.xml
-  print "generate manifest.xml...\t\t",
+    # generate entries for all packages to force package existence at compile
+    # time
+    for dep in pkg_deps:
+        for key in dep:
+            if not dep[key]:
+                ET.SubElement(package, "depend", package=key)
 
-  package = ET.Element("package")
+    # for dep in os_deps:
+        # print "dep " + dep + " - exists: " + str(pkgconfig.exists('opencv'))
 
-  # generate entries for all packages to force package existence at compile time
-  for dep in pkg_deps:
-    for key in dep:
-      if not dep[key]:
-        ET.SubElement(package, "depend", package=key)   
+    # ET.SubElement(package, "depend", package=dep)
+    # sys.exit()
 
-  #for dep in os_deps:
-    #print "dep " + dep + " - exists: " + str(pkgconfig.exists('opencv'))
+    manifest = ET.ElementTree(package)
+    manifest.write("manifest.xml")
 
-   # ET.SubElement(package, "depend", package=dep)
-  
-  #sys.exit()
+    print("DONE")
 
-  manifest = ET.ElementTree(package)
-  manifest.write("manifest.xml")
+    # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD
+    # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
 
-  print "DONE"
+    print("write info to local.autobuild...\t", end="")
 
-  # ADVERTISE LOCAL DEPS IN LOCAL.AUTOBUILD 
-  # ADVERTISE REMOTE DEPS IN UNIVERSE PACKAGE SET
+    localpath = ROOT_DIR + "/autoproj/"+project_name+".autobuild"
+    remotepath = ROOT_DIR + "/autoproj/remotes/esrocos.universe/" + \
+        project_name+".autobuild"
 
-  print "write info to local.autobuild...\t",
+    try:
+        with open(localpath, 'w') as localout,\
+                open(remotepath, 'w') as remoteout:
+            localout.write('esrocos_package "'+project_name+'"\n')
+            for dep in pkg_deps:
+                name = ''
+                remote = False
+                for key in dep:
+                    if key == 'github':
+                        remote = True
+                    if not dep[key]:
+                        name = key
+                if remote:
+                    remoteout.write('cmake_package "'+name+'"\n')
+                else:
+                    localout.write('cmake_package "'+name+'"\n')
 
-  localpath = ROOT_DIR+"/autoproj/"+project_name+".autobuild"
-  remotepath = ROOT_DIR+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+    except IOError as err:
+        print("could not write to file, exit...")
+        sys.exit()
+    print("DONE")
 
-  try:
-    with open(localpath, 'w') as localout, open(remotepath, 'w') as remoteout:
- 
-      localout.write('esrocos_package "'+project_name+'"\n')
-      for dep in pkg_deps:
+    # GENERATE SOURCE ENTRIES FOR REMOTE DEPS
+    print("looking for existing source.yml\t\t", end="")
+    sys.stdout.flush()
+
+    # open universe source.yml
+
+    path = ROOT_DIR + "/autoproj/remotes/esrocos.universe/source.yml"
+    data = {}
+
+    try:
+        with open(path, 'r') as sources:
+            print("DONE")
+            print("parsing source.yml data...\t\t", end="")
+            data = yaml.load(sources)
+            if not data['version_control']:
+                data['version_control'] = []
+    except IOError as err:
+        print("FAILED")
+        data = {'version_control': []}
+
+    # create hash map of existing entries to avoid doubles
+
+    existing_deps = {}
+    for dep in data['version_control']:
+        for key in dep:
+            if not dep[key]:
+                existing_deps[key] = True
+
+    # manipulate source.yml data
+
+    for dep in pkg_deps:
         name = ''
         remote = False
-        for key in dep: 
-          if key == 'github':
-            remote = True
-          if not dep[key]:
-            name = key
-        if remote:
-          remoteout.write('cmake_package "'+name+'"\n')
-        else:
-          localout.write('cmake_package "'+name+'"\n') 
 
-  except IOError as err:
-    print "could not write to file, exit..."
-    sys.exit()
- 
-  print "DONE"
+        for key in dep:
+            if key == 'github':
+                remote = True
+            if not dep[key]:
+                name = key
 
-  # GENERATE SOURCE ENTRIES FOR REMOTE DEPS
-  print "looking for existing source.yml\t\t",
-  sys.stdout.flush()
+        if remote and not existing_deps[name]:
+            data['version_control'].append(dep)
 
-  #open universe source.yml
+    # write back to source.yml
+    try:
+        with open(path, 'w') as outfile:
+            yaml.dump(data, outfile, default_flow_style=False,
+                      allow_unicode=True)
+    except IOError as err:
+        print("could not write to file, aborting...")
+        sys.exit()
 
-  path = ROOT_DIR+"/autoproj/remotes/esrocos.universe/source.yml"
-  data = {}
+print("DONE")
 
-  try:
-    with open(path, 'r') as sources:
-      print "DONE"
-      print "parsing source.yml data...\t\t",
-      data = yaml.load(sources)
-      if not data['version_control']:
-        data['version_control'] = []
-  except IOError as err:
-    print "FAILED"
-    data = {'version_control':[]}
-
-  # create hash map of existing entries to avoid doubles
-
-  existing_deps = {}
-  for dep in data['version_control']:
-    for key in dep:
-      if not dep[key]:
-        existing_deps[key] = True
-
-  # manipulate source.yml data
-
-  for dep in pkg_deps:
-    name = ''
-    remote = False
-
-    for key in dep:  
-      if key == 'github':
-        remote = True
-      if not dep[key]:
-        name = key   
-  
-    if remote and not existing_deps[name]:
-      data['version_control'].append(dep)
-
-  # write back to source.yml
-  try:
-    with open(path, 'w') as outfile:
-      yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
-  except IOError as err:
-    print "could not write to file, aborting..."
-    sys.exit()
-
-print "DONE"
-
-#ENDIF LOCAL_PROJECT 
+# ENDIF LOCAL_PROJECT
 
 # AUP
-print "calling aup, checking out deps ..."
+print("calling aup, checking out deps ...")
 
 aup_arguments = ["aup", project_name]
 call(aup_arguments)
 
-print "calling amake, installing deps..."
+print("calling amake, installing deps...")
 
 for dep in pkg_deps:
-  for key in dep:
-    if not dep[key]:
-      amake_arguments = ["amake", key]
-      call(amake_arguments)
+    for key in dep:
+        if not dep[key]:
+            amake_arguments = ["amake", key]
+            call(amake_arguments)
 
 # REMOVE OLD FILES AND RESET CHANGES
 
-#print "clean tmp files...",
+# print "clean tmp files...",
 
-#remote_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
-#local_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
-#manifest_path = "manifest.xml"
+# remote_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT'] + \
+#        "/autoproj/remotes/esrocos.universe/"+project_name+".autobuild"
+# local_autobuild_path = os.environ['AUTOPROJ_CURRENT_ROOT'] + \
+#        "/autoproj/"+project_name+".autobuild"
+# manifest_path = "manifest.xml"
 
-#os.remove(manifest_path)
-#os.remove(local_autobuild_path)
-#os.remove(remote_autobuild_path)
+# os.remove(manifest_path)
+# os.remove(local_autobuild_path)
+# os.remove(remote_autobuild_path)
 
-#print "DONE"
+# print "DONE"
 
 # INSTALL DEPS IN PROJECT DIR
 
@@ -205,149 +206,156 @@ deps_map = {}
 types_map = {}
 
 for dep in pkg_deps:
-  for key in dep:
-     if not dep[key]:
-       try: 
-         if key.startswith("types"):
-           match = key.rsplit('/',1)[-1]
-           types_map[match] = True       
-         else: 
-           match = key.rsplit('/',1)[-1]
-           deps_map[match] = True
-       except AttributeError:
-         print "no match"            
+    for key in dep:
+        if not dep[key]:
+            try:
+                if key.startswith("types"):
+                    match = key.rsplit('/', 1)[-1]
+                    types_map[match] = True
+                else:
+                    match = key.rsplit('/', 1)[-1]
+                    deps_map[match] = True
+            except AttributeError:
+                print("no match")
 
-# COPY INTERFACE AND SOURCE FILES TO LOCAL INSTALL DIR
+    # COPY INTERFACE AND SOURCE FILES TO LOCAL INSTALL DIR
 
-# create installed_pkgs dir
+    # create installed_pkgs dir
 
-  try:
-    os.makedirs(INSTALLED_PKGS_DIR)
-  except OSError as err:
-    if not err.errno == 17: 
-      raise err
+    try:
+        os.makedirs(INSTALLED_PKGS_DIR)
+    except OSError as err:
+        if not err.errno == 17:
+            raise err
 
 # walk directories and copy files
-print "locally installing shared components...\t", 
+print("locally installing shared components...\t", end="")
 sys.stdout.flush()
 
-SHARED_COMPONENTS_DIR = ROOT_DIR+"/install/components/"
+SHARED_COMPONENTS_DIR = ROOT_DIR + "/install/components/"
 
 # walk through each directory in the installed components
 dirs = []
 
 for (dirpath, dirnames, filenames) in walk(SHARED_COMPONENTS_DIR):
-  dirs.extend(dirnames)
-  break
+    dirs.extend(dirnames)
+    break
 
 for dirname in dirs:
-# proceed only if dir is the name of a dependency
-  try:
-    if not deps_map[dirname]:
-      continue    
-  except KeyError:
-    continue
-  try:
-    del deps_map[dirname]
-    os.symlink(SHARED_COMPONENTS_DIR+"/"+dirname,INSTALLED_PKGS_DIR+dirname)
-  except OSError as err: 
-    if not err.errno == 17: 
-      raise err
+    # proceed only if dir is the name of a dependency
+    try:
+        if not deps_map[dirname]:
+            continue
+    except KeyError:
+        continue
+
+    try:
+        del deps_map[dirname]
+        os.symlink(SHARED_COMPONENTS_DIR+"/"+dirname,
+                   INSTALLED_PKGS_DIR+dirname)
+    except OSError as err:
+        if not err.errno == 17:
+            raise err
 
 if len(deps_map) > 0:
-  print "FAILED"
-  print "WARNING: not all component dependencies could be resolved:"
-  for dep in deps_map:
-    print dep
+    print("FAILED")
+    print("WARNING: not all component dependencies could be resolved:")
+    for dep in deps_map:
+        print(dep)
 
-print "DONE"
+print("DONE")
 
 # COPY ASN FILES FROM SHARED DIR TO LOCAL INSTALL DIR
 
 # walk directories and copy files
-print "locally installing shared types...\t", 
+print("locally installing shared types...\t", end="")
 sys.stdout.flush()
 
-SHARED_TYPES_DIR = ROOT_DIR+"/install/types/"
+SHARED_TYPES_DIR = ROOT_DIR + "/install/types/"
 
 # walk through each directory in the installed types
 dirs = []
 
 for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR):
-  dirs.extend(dirnames)
-  break
+    dirs.extend(dirnames)
+    break
 
 for dirname in dirs:
+    # proceed only if dir is the name of a dependency
+    try:
+        if not types_map[dirname]:
+            continue
+        else:
+            del types_map[dirname]
+    except KeyError:
+        continue
 
-# proceed only if dir is the name of a dependency
-  try:
-    if not types_map[dirname]:
-      continue
-    else:
-      del types_map[dirname]
-  except KeyError:
-    continue
+    # create install dir for dependency
+    try:
+        os.makedirs(INSTALLED_TYPES_DIR+dirname+"/asn")
+    except OSError as err:
+        if not err.errno == 17:
+            raise err
 
-# create install dir for dependency 
-  try:
-    os.makedirs(INSTALLED_TYPES_DIR+dirname+"/asn")
-  except OSError as err:
-    if not err.errno == 17: 
-      raise err  
+    # walk files in directory
 
-# walk files in directory
-
-  for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR+"/"+dirname+"/asn"):
-    for filename in filenames:
-      try:
-        copyfile(dirpath+"/"+filename,INSTALLED_TYPES_DIR+dirname+"/asn/"+filename)
-      except IOError as err:
-        raise err
+    for (dirpath, dirnames, filenames) in walk(SHARED_TYPES_DIR +
+                                               "/" + dirname + "/asn"):
+        for filename in filenames:
+            try:
+                copyfile(dirpath+"/"+filename, INSTALLED_TYPES_DIR +
+                         dirname + "/asn/" + filename)
+            except IOError as err:
+                raise err
 
 if len(types_map) > 0:
-  print "FAILED"
-  print "not all type dependencies could be resolved:"
-  for dep in types_map:
-    print dep
-  sys.exit()
+    print("FAILED")
+    print("not all type dependencies could be resolved:")
+    for dep in types_map:
+        print(dep)
+    sys.exit()
 
 
-print "DONE"
+print("DONE")
 
 # COMPILE ASN AND ACN TO MONOLITHIC AADL FILE
 
-print "compiling types to aadl...\t\t",
+print("compiling types to aadl...\t\t", end="")
 sys.stdout.flush()
 
-#getting asn and acn files from folder
+# getting asn and acn files from folder
 
 asn_acn_files = []
 asn_filenames = []
 
 for (dirpath, dirnames, filenames) in walk(SRC_DIR):
-  for filename in filenames:
-    if filename.endswith(".asn") or filename.endswith(".acn"):
-      if not filename in asn_filenames:
-        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
-        asn_filenames.append(filename)
-      else: 
-        print "duplicate: "+filename
+    for filename in filenames:
+        if filename.endswith(".asn") or filename.endswith(".acn"):
+            if filename not in asn_filenames:
+                asn_acn_files.append(
+                        os.getcwd() + "/" + os.path.join(dirpath, filename))
+                asn_filenames.append(filename)
+            else:
+                print("duplicate: " + filename)
 
 for (dirpath, dirnames, filenames) in walk(INSTALLED_TYPES_DIR):
-  for filename in filenames:
-    if filename.endswith(".asn") or filename.endswith(".acn"):
-      if not filename in asn_filenames:
-        asn_acn_files.append(os.getcwd()+"/"+os.path.join(dirpath,filename))
-        asn_filenames.append(filename)
-      else: 
-        print "duplicate: "+filename
+    for filename in filenames:
+        if filename.endswith(".asn") or filename.endswith(".acn"):
+            if filename not in asn_filenames:
+                asn_acn_files.append(
+                        os.getcwd() + "/" + os.path.join(dirpath, filename))
+                asn_filenames.append(filename)
+            else:
+                print("duplicate: " + filename)
 
-#print asn_acn_files
+# print asn_acn_files
 
 asn_arguments = ["asn2aadlPlus"]
 asn_arguments.extend(asn_acn_files)
-asn_arguments.append(os.getcwd()+ "/" + INSTALLED_TYPES_DIR + project_name.replace(" ", "_") + "_dv.aadl")
+asn_arguments.append(
+        os.getcwd() + "/" + INSTALLED_TYPES_DIR +
+        project_name.replace(" ", "_") + "_dv.aadl")
 
 call(asn_arguments)
 
-print "DONE"
+print("DONE")

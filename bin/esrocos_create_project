@@ -1,77 +1,81 @@
 #!/usr/bin/env python
 
-import os.path
+from __future__ import print_function
 import os
-import yaml
+import os.path
 import sys
 import subprocess
-from subprocess import call 
+from subprocess import call
+import yaml
 
 ESROCOS_YAML = "esrocos.yml"
 SRC_DIR = "dataview/"
 INSTALLED_TYPES_DIR = "installed_types/"
 INSTALLED_PKGS_DIR = "installed_pkgs/"
-LOCAL=True
+LOCAL = True
 
-print "init esrocos project..."
+print("init esrocos project...")
 sys.stdout.flush()
 
 if len(sys.argv) == 2:
-
-  path = sys.argv[1]
-  try: 
-    os.makedirs(path)
-    os.chdir(path)
-    project_name = sys.argv[1]
-  except OSError:
-    if not os.path.isdir(path):
-      raise
-
-else: 
-  print "usage: esrocos_create_project <project name>"
-  sys.exit()
-
-
-#AT THIS POINT WE SHOULD BE IN THE NEW WORKSPACE DIR ONE WAY OR THE OTHER
-
-try: 
-  with open(ESROCOS_YAML, 'r') as stream:
+    path = sys.argv[1]
     try:
-      print "found existing esrocos.yml, use esrocos-edit-project instead."
-      sys.exit()
-    except yaml.YAMLError as err:
-      print "creating esrocos.yml"
+        os.makedirs(path)
+        os.chdir(path)
+        project_name = sys.argv[1]
+    except OSError:
+        if not os.path.isdir(path):
+            raise
+else:
+    print("usage: esrocos_create_project <project name>")
+    sys.exit()
+
+
+# AT THIS POINT WE SHOULD BE IN THE NEW WORKSPACE DIR ONE WAY OR THE OTHER
+
+try:
+    with open(ESROCOS_YAML, 'r') as stream:
+        try:
+            print(
+                "found existing esrocos.yml,"
+                " use esrocos-edit-project instead.")
+            sys.exit()
+        except yaml.YAMLError as err:
+            print("creating esrocos.yml")
 except IOError as err:
-  print "no file found, creating.."
+    print("no file found, creating..")
 
 
-#INTERACTIVELY ASK FOR OS DEPENDENCIES
+# INTERACTIVELY ASK FOR OS DEPENDENCIES
 
-print "Please enter the projects OS dependencies, proceed by pressing return"
+print("Please enter the projects OS dependencies, proceed by pressing return")
 os_deps = []
 user_input = "default"
 while not user_input == "":
-  user_input = raw_input("> ")
-  if not user_input == "":
-    os_deps.append(user_input)
+    user_input = raw_input("> ")
+    if not user_input == "":
+        os_deps.append(user_input)
 
-print os_deps  
-  
-#INTERACTIVELY ASK FOR PACKAGE DEPENDENCIES
+print(os_deps)
+
+# INTERACTIVELY ASK FOR PACKAGE DEPENDENCIES
 
 pkg_deps = []
 
-print "Please enter package dependencies, proceed by pressing return"
+print("Please enter package dependencies, proceed by pressing return")
 user_input = "default"
 while not user_input == "":
-  user_input = raw_input("> ")
-  if not user_input == "":
-    pkg_deps.append(user_input)
+    user_input = raw_input("> ")
+    if not user_input == "":
+        pkg_deps.append(user_input)
 
-print pkg_deps
-print "please make sure these packages are either other locally developed esrocos components or to give additional version control information in the esrocos.yml"
+print(pkg_deps)
+print(
+    "please make sure these packages are either other locally developed"
+    " esrocos components or to give additional version control information"
+    " in the esrocos.yml")
 
-#GENERATE CONF FILE
+# GENERATE CONF FILE
 
 data = {}
 data["PROJECT_NAME"] = project_name
@@ -79,156 +83,158 @@ data["os_deps"] = os_deps
 data["pkg_deps"] = []
 data["LOCAL_PROJECT"] = LOCAL
 for dep in pkg_deps:
-  data["pkg_deps"].append({dep:''})
+    data["pkg_deps"].append({dep: ''})
 
 data["ASNACN_DIR"] = SRC_DIR
-data["INSTALLED_TYPES_DIR"] = INSTALLED_TYPES_DIR 
+data["INSTALLED_TYPES_DIR"] = INSTALLED_TYPES_DIR
 data["INSTALLED_PKGS_DIR"] = INSTALLED_PKGS_DIR
 
 try:
-  with open(ESROCOS_YAML, 'w') as outfile:
-    yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
+    with open(ESROCOS_YAML, 'w') as outfile:
+        yaml.dump(data, outfile, default_flow_style=False, allow_unicode=True)
 except IOError as err:
-  print "could not write to file, exit..."
-  sys.exit()
+    print("could not write to file, exit...")
+    sys.exit()
 
-#CREATE FOLDER STRUCTURE
-print "create folder structure...\t",
+# CREATE FOLDER STRUCTURE
+print("create folder structure...\t", end="")
 sys.stdout.flush()
 
 try:
-  os.makedirs(SRC_DIR)
+    os.makedirs(SRC_DIR)
 except OSError as err:
-  if not err.errno == 17: 
-    print "FAILED"
-    raise
+    if not err.errno == 17:
+        print("FAILED")
+        raise
 
-try: 
-  os.makedirs(INSTALLED_TYPES_DIR)
+try:
+    os.makedirs(INSTALLED_TYPES_DIR)
 except OSError as err:
-  if not err.errno == 17: 
-    print "FAILED"
-    raise
+    if not err.errno == 17:
+        print("FAILED")
+        raise
 
-print "DONE"
+print("DONE")
 
 # ADVERTISE PROJECT IN AUTOPROJ/LOCAL.AUTOBUILD
-#print "create local autobuild...\t",
+# print "create local autobuild...\t",
 
-#path = os.environ['AUTOPROJ_CURRENT_ROOT']+"/autoproj/"+project_name+".autobuild"
+# path = os.environ['AUTOPROJ_CURRENT_ROOT'] + \
+#        "/autoproj/"+project_name+".autobuild"
 
-#try:
-#  with open(path, 'a') as outfile:
-#    outfile.write('import_package "'+project_name+'"')
+# try:
+#   with open(path, 'a') as outfile:
+#     outfile.write('import_package "'+project_name+'"')
 
-#except IOError as err:
-#  print "could not write to file, exit..."
-#  sys.exit()
+# except IOError as err:
+#   print "could not write to file, exit..."
+#   sys.exit()
 
-#print "DONE"
+# print "DONE"
 
-#CREATE ASN FILES
-#print "copy taste-types...\t\t",
-#sys.stdout.flush()
+# CREATE ASN FILES
+# print "copy taste-types...\t\t",
+# sys.stdout.flush()
 
-#lproc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
-#tasteconfig = proc.stdout.read().rstrip()
+# lproc = subprocess.Popen(["taste-config","--prefix"], stdout=subprocess.PIPE)
+# tasteconfig = proc.stdout.read().rstrip()
 
-#cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn", SRC_DIR + "/taste-types.asn"]
+# cp_arguments = ["cp",tasteconfig + "/share/taste-types/taste-types.asn",
+#                 SRC_DIR + "/taste-types.asn"]
 
-#call(cp_arguments)
+# call(cp_arguments)
 
-#print "DONE"
+# print "DONE"
 
-print "create asn file...\t\t",
+print("create asn file...\t\t", end="")
 
-data_view_asn = "ESROCOS-" + project_name.replace("_","-") + """ DEFINITIONS ::=
+data_view_asn = "ESROCOS-" + project_name.replace("_", "-") + \
+        """ DEFINITIONS ::=
 BEGIN
 
 MyDummyInteger::=INTEGER(0..255)
--- Define your own data types and constants here 
+-- Define your own data types and constants here
 
 END
-  """
+"""
 
 try:
-  with open(SRC_DIR+project_name.replace(' ', '_') +".asn", 'w') as outfile:
-    outfile.write(data_view_asn)
+    with open(SRC_DIR+project_name.replace(' ', '_') + ".asn", 'w') as outfile:
+        outfile.write(data_view_asn)
 except IOError as err:
-  print "FAILED"
-  raise
+    print("FAILED")
+    raise
 else:
-  print "DONE"
+    print("DONE")
 
-#CREATE ACN MODELS
-print "generate acn files...\t\t",
+# CREATE ACN MODELS
+print("generate acn files...\t\t", end="")
 sys.stdout.flush()
 
 asn1_args = ["which", "asn1.exe"]
 proc = subprocess.Popen(asn1_args, stdout=subprocess.PIPE)
 asn1 = proc.stdout.read().rstrip()
 
-mono_args=["mono", asn1, "-o", SRC_DIR, "-ACND", SRC_DIR +project_name.replace(' ', '_') + '.asn']
+mono_args = ["mono", asn1, "-o", SRC_DIR, "-ACND",
+             SRC_DIR + project_name.replace(' ', '_') + '.asn']
 
 call(mono_args)
 
-print"DONE"
-#GENERATE DATA VIEW
-print "generate data view files...\t", 
+print("DONE")
+# GENERATE DATA VIEW
+print("generate data view files...\t", end="")
 sys.stdout.flush()
 
-print "DONE"
+print("DONE")
 
 # COPY CMAKE TEMPLATE
-print "generate CMakeLists.txt...\t",
+print("generate CMakeLists.txt...\t", end="")
 
 try:
-  inpath = os.environ['ESROCOS_TEMPLATES'] + "/CMakeLists.txt.in"
-  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/CMakeLists.txt"
-  
-  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
-    # read
-    data = infile.read()
-    # replace  
-    data = data.replace("@PROJECT@", project_name)
-    dara = data.replace("@FILE@", outpath)
+    inpath = os.environ['ESROCOS_TEMPLATES'] + "/CMakeLists.txt.in"
+    outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + \
+        project_name + "/CMakeLists.txt"
+    with open(inpath, 'r') as infile, open(outpath, 'w') as outfile:
+        # read
+        data = infile.read()
+        # replace
+        data = data.replace("@PROJECT@", project_name)
+        dara = data.replace("@FILE@", outpath)
 
-    # write
-    outfile.write(data)
-
+        # write
+        outfile.write(data)
 except IOError as err:
-  print "FAILED"
-  raise
+    print("FAILED")
+    raise
 else:
-  print "DONE"
+    print("DONE")
 
 # COPY PKG-CONFIG TEMPLATE
-print "generate package-config file...\t",
+print("generate package-config file...\t", end="")
 
 try:
-  inpath = os.environ['ESROCOS_TEMPLATES'] + "/pkg-config-template.pc.in"
-  outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + "/"+ project_name +".pc.in"
-  
-  with open(inpath, 'r') as infile, open (outpath, 'w') as outfile:
-    # read
-    data = infile.read()
-    # replace  
-    data = data.replace("@PROJECT@", project_name)
-    # write
-    outfile.write(data)
-
+    inpath = os.environ['ESROCOS_TEMPLATES'] + "/pkg-config-template.pc.in"
+    outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + \
+        "/" + project_name + ".pc.in"
+    with open(inpath, 'r') as infile, open(outpath, 'w') as outfile:
+        # read
+        data = infile.read()
+        # replace
+        data = data.replace("@PROJECT@", project_name)
+        # write
+        outfile.write(data)
 except IOError as err:
-  print "FAILED"
-  raise
+    print("FAILED")
+    raise
 else:
-  print "DONE"
+    print("DONE")
 
-#FINALLY
-print """
+# FINALLY
+print("""
 ESROCOS project initialized successfully.
 Edit dependencies in >>esrocos.yml<< and >>CMakeLists.txt<<.
 Fetch Dependencies with >>esrocos_fetch_dependencies<<.
 Then edit the project by calling >>esrocos_edit_project<<.
 Generate code stubs with >>esrocos_generate_skeletons<<.
 Build the project with >>amake<<.
-"""
+""")
