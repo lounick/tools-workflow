@@ -196,8 +196,7 @@ print("generate CMakeLists.txt...\t", end="")
 
 try:
     inpath = os.environ['ESROCOS_TEMPLATES'] + "/CMakeLists.txt.in"
-    outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + \
-        project_name + "/CMakeLists.txt"
+    outpath = "CMakeLists.txt"
     with open(inpath, 'r') as infile, open(outpath, 'w') as outfile:
         # read
         data = infile.read()
@@ -218,8 +217,7 @@ print("generate package-config file...\t", end="")
 
 try:
     inpath = os.environ['ESROCOS_TEMPLATES'] + "/pkg-config-template.pc.in"
-    outpath = os.environ['AUTOPROJ_CURRENT_ROOT'] + "/" + project_name + \
-        "/" + project_name + ".pc.in"
+    outpath = project_name + ".pc.in"
     with open(inpath, 'r') as infile, open(outpath, 'w') as outfile:
         # read
         data = infile.read()
