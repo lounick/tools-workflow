@@ -19,13 +19,17 @@ sys.stdout.flush()
 
 if len(sys.argv) == 2:
     path = sys.argv[1]
-    try:
-        os.makedirs(path)
+    if not os.path.isdir(path):
+        try:
+            os.makedirs(path)
+            os.chdir(path)
+            project_name = sys.argv[1]
+        except OSError:
+            if not os.path.isdir(path):
+                raise
+    else:
         os.chdir(path)
         project_name = sys.argv[1]
-    except OSError:
-        if not os.path.isdir(path):
-            raise
 else:
     print("usage: esrocos_create_project <project name>")
     sys.exit()
